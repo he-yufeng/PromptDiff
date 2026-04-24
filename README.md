@@ -1,4 +1,7 @@
 [![中文版](https://img.shields.io/badge/lang-中文-red)](README.zh-CN.md)
+[![Python](https://img.shields.io/badge/python-3.10+-blue)](https://python.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![CI](https://github.com/he-yufeng/PromptDiff/actions/workflows/ci.yml/badge.svg)](https://github.com/he-yufeng/PromptDiff/actions)
 
 # PromptDiff
 

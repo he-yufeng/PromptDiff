@@ -7,14 +7,13 @@ name = "promptdiff"
 version = "0.1.0"
 description = "Semantic diff for LLM prompts — compare prompt versions like git diff"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 requires-python = ">=3.10"
 authors = [{name = "Yufeng He", email = "40085740+he-yufeng@users.noreply.github.com"}]
 keywords = ["llm", "prompt", "diff", "testing", "evaluation", "regression"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",

@@ -4,6 +4,11 @@ from promptdiff.cli import main
 from promptdiff.runner import RunResult
 
 
+class _DummyRunner:
+    def __init__(self, config):
+        self.config = config
+
+
 async def _fake_error_run(_runner, _prompt_a, _prompt_b, inputs):
     return (
         [
@@ -41,6 +46,7 @@ def _write_inputs(tmp_path):
 
 
 def test_fail_on_error_exits_nonzero(tmp_path, monkeypatch):
+    monkeypatch.setattr("promptdiff.cli.PromptRunner", _DummyRunner)
     monkeypatch.setattr("promptdiff.cli._run_both", _fake_error_run)
     prompt_a, prompt_b, cases = _write_inputs(tmp_path)
 
@@ -60,6 +66,7 @@ def test_fail_on_error_exits_nonzero(tmp_path, monkeypatch):
 
 
 def test_errors_do_not_fail_without_ci_flag(tmp_path, monkeypatch):
+    monkeypatch.setattr("promptdiff.cli.PromptRunner", _DummyRunner)
     monkeypatch.setattr("promptdiff.cli._run_both", _fake_error_run)
     prompt_a, prompt_b, cases = _write_inputs(tmp_path)
 

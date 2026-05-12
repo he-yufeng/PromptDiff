@@ -17,6 +17,7 @@ Prompt engineering is iterative. You tweak a word, add an instruction, restructu
 - **Semantic comparison** using sentence embeddings (or lexical fallback) to detect behavioral changes
 - **LLM-as-judge** (optional) to classify changes as improvements or regressions
 - **CI-friendly** — exit code 1 on regressions, JSON output for automation
+- **Error-aware gating** - fail CI when either prompt version errors before trusting the diff
 - **Rich terminal reports** with color-coded diffs, similarity scores, latency/token deltas
 
 ## Installation
@@ -97,7 +98,7 @@ Fail the build if any regressions are detected:
 
 ```bash
 promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl \
-  --fail-on-regression --json-output results.json
+  --fail-on-regression --fail-on-error --json-output results.json
 ```
 
 ### Adjust sensitivity
@@ -124,6 +125,7 @@ Options:
   -c, --concurrency INT     Max concurrent API calls (default: 5)
   --no-semantic             Use lexical similarity instead of embeddings
   --fail-on-regression      Exit code 1 if regressions found
+  --fail-on-error           Exit code 1 if any prompt run errors
 ```
 
 ## Test Case Formats
@@ -167,6 +169,8 @@ report.print_full(diffs, summary, verbose=True)
 2. **Compare**: Outputs are compared using semantic similarity (sentence-transformers) or lexical similarity (Jaccard)
 3. **Classify**: Cases below the similarity threshold are marked as "changed". Optionally, an LLM judge decides if the change is an improvement or regression
 4. **Report**: Results are displayed with color-coded terminal output and optional JSON export
+
+JSON output includes judge verdicts and per-side run errors, so CI jobs can fail loudly instead of hiding API failures behind an empty diff.
 
 ## Development
 

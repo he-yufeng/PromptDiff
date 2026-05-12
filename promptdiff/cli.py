@@ -40,6 +40,7 @@ def main():
 @click.option("--concurrency", "-c", default=5, type=int, help="Max concurrent API calls.")
 @click.option("--no-semantic", is_flag=True, help="Use lexical similarity instead of embeddings.")
 @click.option("--fail-on-regression", is_flag=True, help="Exit with code 1 if any regressions found (for CI).")
+@click.option("--fail-on-error", is_flag=True, help="Exit with code 1 if any prompt run errors occur (for CI).")
 def compare(
     prompt_a: str,
     prompt_b: str,
@@ -56,6 +57,7 @@ def compare(
     concurrency: int,
     no_semantic: bool,
     fail_on_regression: bool,
+    fail_on_error: bool,
 ):
     """Compare two prompt versions against test cases.
 
@@ -115,7 +117,7 @@ def compare(
         Path(json_output).write_text(differ.to_json(diffs, summary), encoding="utf-8")
         console.print(f"\n[dim]JSON results written to {json_output}[/dim]")
 
-    if fail_on_regression and summary.regressed > 0:
+    if (fail_on_regression and summary.regressed > 0) or (fail_on_error and summary.errors > 0):
         sys.exit(1)
 
 

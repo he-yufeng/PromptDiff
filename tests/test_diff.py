@@ -41,6 +41,8 @@ class TestPromptDiff:
         b = _make_result("hello", "fine")
         case = differ.compare_pair(a, b)
         assert case.change == ChangeType.ERROR
+        assert case.error_a == "timeout"
+        assert case.error_b is None
 
     def test_latency_delta(self):
         differ = PromptDiff(use_semantic=False)
@@ -88,6 +90,18 @@ class TestPromptDiff:
         data = json.loads(raw)
         assert data["summary"]["total"] == 1
         assert len(data["cases"]) == 1
+        assert "judge_verdict" in data["cases"][0]
+        assert "error_a" in data["cases"][0]
+
+    def test_error_details_are_serialized(self):
+        differ = PromptDiff(use_semantic=False)
+        a = [_make_result("q1", "", error="timeout")]
+        b = [_make_result("q1", "answer")]
+        diffs, summary = differ.compare_batch(a, b)
+        data = json.loads(differ.to_json(diffs, summary))
+        assert data["summary"]["errors"] == 1
+        assert data["cases"][0]["error_a"] == "timeout"
+        assert data["cases"][0]["error_b"] is None
 
     def test_threshold_boundary(self):
         """With high threshold, even similar outputs count as changed."""

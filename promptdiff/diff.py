@@ -31,6 +31,8 @@ class CaseDiff:
     # if a judge was used
     judge_verdict: str | None = None
     judge_reason: str | None = None
+    error_a: str | None = None
+    error_b: str | None = None
 
 
 @dataclass
@@ -110,6 +112,8 @@ class PromptDiff:
                 similarity=0.0,
                 latency_delta_ms=result_b.latency_ms - result_a.latency_ms,
                 token_delta=(result_b.tokens_out - result_a.tokens_out),
+                error_a=result_a.error,
+                error_b=result_b.error,
             )
 
         sim = self._semantic_similarity(result_a.output, result_b.output)
@@ -186,6 +190,10 @@ class PromptDiff:
                         "similarity": d.similarity,
                         "latency_delta_ms": d.latency_delta_ms,
                         "token_delta": d.token_delta,
+                        "judge_verdict": d.judge_verdict,
+                        "judge_reason": d.judge_reason,
+                        "error_a": d.error_a,
+                        "error_b": d.error_b,
                     }
                     for d in diffs
                 ],

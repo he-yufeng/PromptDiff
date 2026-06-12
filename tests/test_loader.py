@@ -2,6 +2,7 @@
 
 import json
 
+import pytest
 import yaml
 
 from promptdiff.loader import load_prompt, load_test_cases
@@ -38,6 +39,19 @@ class TestLoadTestCases:
         cases = load_test_cases(str(p))
         assert cases == ["question 1", "question 2"]
 
+    def test_load_jsonl_strings(self, tmp_path):
+        p = tmp_path / "cases.jsonl"
+        p.write_text(json.dumps("plain question") + "\n")
+
+        assert load_test_cases(str(p)) == ["plain question"]
+
+    def test_bad_jsonl_points_to_line(self, tmp_path):
+        p = tmp_path / "cases.jsonl"
+        p.write_text('{"input": "ok"}\n{"missing": "input"}\n')
+
+        with pytest.raises(ValueError, match=r"cases\.jsonl:2"):
+            load_test_cases(str(p))
+
     def test_load_json_strings(self, tmp_path):
         p = tmp_path / "cases.json"
         p.write_text(json.dumps(["q1", "q2", "q3"]))
@@ -69,3 +83,10 @@ class TestLoadTestCases:
         p.write_text("hello\n\n\nworld\n")
         cases = load_test_cases(str(p))
         assert cases == ["hello", "world"]
+
+    def test_json_root_must_be_list(self, tmp_path):
+        p = tmp_path / "cases.json"
+        p.write_text(json.dumps({"input": "not a list"}))
+
+        with pytest.raises(ValueError, match="expected a list"):
+            load_test_cases(str(p))

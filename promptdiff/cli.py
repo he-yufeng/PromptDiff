@@ -25,6 +25,33 @@ def main():
 
 
 @main.command()
+@click.argument("prompt", type=click.Path(exists=True))
+@click.argument("test_cases", type=click.Path(exists=True))
+@click.option("--min-cases", default=1, type=int, help="Minimum number of test cases required.")
+def validate(prompt: str, test_cases: str, min_cases: int):
+    """Validate prompt and test-case files without calling an LLM."""
+    if min_cases <= 0:
+        raise click.UsageError("--min-cases must be greater than zero")
+
+    try:
+        prompt_text = load_prompt(prompt)
+        inputs = load_test_cases(test_cases)
+    except Exception as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    if not prompt_text:
+        raise click.ClickException("Prompt file is empty.")
+    if len(inputs) < min_cases:
+        raise click.ClickException(
+            f"Only found {len(inputs)} test case(s), but --min-cases is {min_cases}."
+        )
+
+    console.print("[green]PromptDiff inputs look valid.[/green]")
+    console.print(f"[bold]Prompt chars:[/bold] {len(prompt_text):,}")
+    console.print(f"[bold]Test cases:[/bold] {len(inputs):,}")
+
+
+@main.command()
 @click.argument("prompt_a", type=click.Path(exists=True))
 @click.argument("prompt_b", type=click.Path(exists=True))
 @click.argument("test_cases", type=click.Path(exists=True))

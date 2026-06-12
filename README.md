@@ -74,6 +74,14 @@ Output:
 promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl
 ```
 
+### Validate inputs without calling an LLM
+
+```bash
+promptdiff validate prompt_a.txt tests.jsonl --min-cases 5
+```
+
+This checks that the prompt is non-empty and that JSON/JSONL/YAML test cases have valid `input` fields before a CI job spends money on model calls.
+
 ### With LLM-as-judge
 
 When outputs differ, use an LLM judge to decide if the change is an improvement or regression:

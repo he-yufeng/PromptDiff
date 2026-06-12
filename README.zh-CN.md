@@ -56,6 +56,14 @@ promptdiff compare prompt_v1.txt prompt_v2.txt test_cases.jsonl
 promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl
 ```
 
+### 不调用 LLM，先检查输入文件
+
+```bash
+promptdiff validate prompt_a.txt tests.jsonl --min-cases 5
+```
+
+这个命令会先确认 prompt 非空，并检查 JSON / JSONL / YAML 测试用例是否都有合法的 `input` 字段，避免 CI 还没发现数据坏了就先花钱调用模型。
+
 ### 使用 LLM 裁判
 
 当输出有差异时，让 LLM 判断变化是改进还是退步：

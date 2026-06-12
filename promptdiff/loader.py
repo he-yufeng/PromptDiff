@@ -27,28 +27,45 @@ def load_test_cases(path: str) -> list[str]:
 
     if suffix == ".jsonl":
         lines = p.read_text(encoding="utf-8").strip().splitlines()
-        return [json.loads(line)["input"] for line in lines if line.strip()]
+        cases = []
+        for line_no, line in enumerate(lines, start=1):
+            if not line.strip():
+                continue
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"{p}:{line_no}: invalid JSONL: {exc.msg}") from exc
+            cases.append(_extract_input(item, where=f"{p}:{line_no}"))
+        return cases
 
     if suffix == ".json":
         data = json.loads(p.read_text(encoding="utf-8"))
-        return _extract_inputs(data)
+        return _extract_inputs(data, where=str(p))
 
     if suffix in (".yaml", ".yml"):
         data = yaml.safe_load(p.read_text(encoding="utf-8"))
-        return _extract_inputs(data)
+        return _extract_inputs(data, where=str(p))
 
     # plain text fallback
     return [line.strip() for line in p.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
-def _extract_inputs(data: list) -> list[str]:
+def _extract_inputs(data, where: str) -> list[str]:
     """Extract input strings from a list of strings or dicts."""
+    if not isinstance(data, list):
+        raise ValueError(f"{where}: expected a list of strings or objects with an input field")
     result = []
-    for item in data:
-        if isinstance(item, str):
-            result.append(item)
-        elif isinstance(item, dict) and "input" in item:
-            result.append(item["input"])
-        else:
-            raise ValueError(f"Can't extract input from: {item!r}")
+    for index, item in enumerate(data, start=1):
+        result.append(_extract_input(item, where=f"{where}[{index}]"))
     return result
+
+
+def _extract_input(item, where: str) -> str:
+    if isinstance(item, str):
+        return item
+    if isinstance(item, dict) and "input" in item:
+        value = item["input"]
+        if isinstance(value, str):
+            return value
+        raise ValueError(f"{where}: input must be a string, got {type(value).__name__}")
+    raise ValueError(f"{where}: expected a string or an object with an input field")

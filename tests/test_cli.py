@@ -82,3 +82,25 @@ def test_errors_do_not_fail_without_ci_flag(tmp_path, monkeypatch):
     )
 
     assert result.exit_code == 0, result.output
+
+
+def test_validate_command_accepts_good_inputs(tmp_path):
+    prompt_a, _prompt_b, cases = _write_inputs(tmp_path)
+
+    result = CliRunner().invoke(main, ["validate", str(prompt_a), str(cases)])
+
+    assert result.exit_code == 0, result.output
+    assert "PromptDiff inputs look valid" in result.output
+    assert "Test cases" in result.output
+
+
+def test_validate_command_rejects_too_few_cases(tmp_path):
+    prompt_a, _prompt_b, cases = _write_inputs(tmp_path)
+
+    result = CliRunner().invoke(
+        main,
+        ["validate", str(prompt_a), str(cases), "--min-cases", "2"],
+    )
+
+    assert result.exit_code != 0
+    assert "Only found 1 test case" in result.output

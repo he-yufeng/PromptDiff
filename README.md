@@ -117,6 +117,14 @@ Lower threshold = more permissive (fewer false regressions):
 promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl --threshold 0.7
 ```
 
+### Review the riskiest cases first
+
+Terminal reports sort by severity by default: prompt run errors first, then the lowest-similarity regressions, then improvements and unchanged cases. If you want to preserve the original test-case order:
+
+```bash
+promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl --sort input
+```
+
 ### All options
 
 ```

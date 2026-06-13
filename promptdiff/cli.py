@@ -63,6 +63,14 @@ def validate(prompt: str, test_cases: str, min_cases: int):
 @click.option("--judge-model", default="gpt-4o-mini", help="Model for the judge.")
 @click.option("--verbose", "-v", is_flag=True, help="Show detailed output for changed cases.")
 @click.option("--show-unchanged", is_flag=True, help="Include unchanged cases in the report.")
+@click.option(
+    "--sort",
+    "sort_by",
+    type=click.Choice(["severity", "input"]),
+    default="severity",
+    show_default=True,
+    help="Case ordering in terminal reports.",
+)
 @click.option("--json-output", "-o", type=click.Path(), default=None, help="Write JSON results to file.")
 @click.option("--concurrency", "-c", default=5, type=int, help="Max concurrent API calls.")
 @click.option("--no-semantic", is_flag=True, help="Use lexical similarity instead of embeddings.")
@@ -80,6 +88,7 @@ def compare(
     judge_model: str,
     verbose: bool,
     show_unchanged: bool,
+    sort_by: str,
     json_output: str | None,
     concurrency: int,
     no_semantic: bool,
@@ -136,7 +145,13 @@ def compare(
 
     # output
     report = DiffReport(console)
-    report.print_full(diffs, summary, verbose=verbose, show_unchanged=show_unchanged)
+    report.print_full(
+        diffs,
+        summary,
+        verbose=verbose,
+        show_unchanged=show_unchanged,
+        sort_by=sort_by,
+    )
 
     if json_output:
         from pathlib import Path

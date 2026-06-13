@@ -91,6 +91,14 @@ promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl \
   --fail-on-regression --json-output results.json
 ```
 
+### 先看最危险的 case
+
+终端报告默认按严重程度排序：先显示 prompt 运行错误，再显示相似度最低的回归 case，然后才是改进和未变化的 case。这样 review 时不用从几十条样例里自己找重点。如果你想保留测试用例原始顺序：
+
+```bash
+promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl --sort input
+```
+
 ## 测试用例格式
 
 | 格式 | 示例 |

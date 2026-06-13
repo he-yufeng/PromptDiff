@@ -84,6 +84,27 @@ def test_errors_do_not_fail_without_ci_flag(tmp_path, monkeypatch):
     assert result.exit_code == 0, result.output
 
 
+def test_compare_accepts_input_sort(tmp_path, monkeypatch):
+    monkeypatch.setattr("promptdiff.cli.PromptRunner", _DummyRunner)
+    monkeypatch.setattr("promptdiff.cli._run_both", _fake_error_run)
+    prompt_a, prompt_b, cases = _write_inputs(tmp_path)
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "compare",
+            str(prompt_a),
+            str(prompt_b),
+            str(cases),
+            "--no-semantic",
+            "--sort",
+            "input",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+
+
 def test_validate_command_accepts_good_inputs(tmp_path):
     prompt_a, _prompt_b, cases = _write_inputs(tmp_path)
 

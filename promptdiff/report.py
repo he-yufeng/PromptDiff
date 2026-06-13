@@ -50,7 +50,37 @@ class DiffReport:
 
         self.console.print(Panel(f"{header}\n{stats}", title="PromptDiff Summary", border_style="blue"))
 
-    def print_cases(self, diffs: list[CaseDiff], show_unchanged: bool = False) -> None:
+    @staticmethod
+    def _ordered_cases(
+        diffs: list[CaseDiff],
+        sort_by: str,
+    ) -> list[tuple[int, CaseDiff]]:
+        indexed = list(enumerate(diffs, 1))
+        if sort_by == "input":
+            return indexed
+
+        rank = {
+            ChangeType.ERROR: 0,
+            ChangeType.REGRESSED: 1,
+            ChangeType.IMPROVED: 2,
+            ChangeType.UNCHANGED: 3,
+        }
+        return sorted(
+            indexed,
+            key=lambda item: (
+                rank[item[1].change],
+                item[1].similarity,
+                -abs(item[1].token_delta),
+                -abs(item[1].latency_delta_ms),
+            ),
+        )
+
+    def print_cases(
+        self,
+        diffs: list[CaseDiff],
+        show_unchanged: bool = False,
+        sort_by: str = "severity",
+    ) -> None:
         table = Table(show_header=True, header_style="bold", expand=True)
         table.add_column("#", width=3, justify="right")
         table.add_column("", width=1)  # icon
@@ -59,7 +89,7 @@ class DiffReport:
         table.add_column("Latency", width=9, justify="right")
         table.add_column("Tokens", width=8, justify="right")
 
-        for i, d in enumerate(diffs, 1):
+        for i, d in self._ordered_cases(diffs, sort_by):
             if d.change == ChangeType.UNCHANGED and not show_unchanged:
                 continue
 
@@ -102,13 +132,18 @@ class DiffReport:
         summary: DiffSummary,
         verbose: bool = False,
         show_unchanged: bool = False,
+        sort_by: str = "severity",
     ) -> None:
         self.console.print()
         self.print_summary(summary)
         self.console.print()
-        self.print_cases(diffs, show_unchanged=show_unchanged)
+        self.print_cases(diffs, show_unchanged=show_unchanged, sort_by=sort_by)
 
         if verbose:
-            changed = [d for d in diffs if d.change != ChangeType.UNCHANGED]
-            for i, d in enumerate(changed, 1):
+            changed = [
+                (i, d)
+                for i, d in self._ordered_cases(diffs, sort_by)
+                if d.change != ChangeType.UNCHANGED
+            ]
+            for i, d in changed:
                 self.print_detail(d, index=i)

@@ -54,3 +54,16 @@ class TestDiffReport:
         report.print_cases(diffs, show_unchanged=False)
         output = buf.getvalue()
         assert "unchanged" in output.lower()
+
+    def test_severity_sort_keeps_worst_cases_first(self):
+        report = DiffReport()
+        diffs = [
+            _make_diff(ChangeType.UNCHANGED, sim=1.0),
+            _make_diff(ChangeType.REGRESSED, sim=0.8),
+            _make_diff(ChangeType.ERROR, sim=0.0),
+            _make_diff(ChangeType.REGRESSED, sim=0.2),
+        ]
+
+        ordered = report._ordered_cases(diffs, sort_by="severity")
+
+        assert [i for i, _ in ordered] == [3, 4, 2, 1]

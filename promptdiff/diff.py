@@ -54,9 +54,12 @@ def evaluate_gates(
     max_regression_rate: float | None = None,
     max_avg_latency_increase_ms: float | None = None,
     max_avg_token_increase: float | None = None,
+    min_avg_similarity: float | None = None,
+    max_error_rate: float | None = None,
 ) -> dict:
     """Evaluate CI budgets against the aggregate diff."""
     regression_rate = summary.regressed / max(summary.total, 1)
+    error_rate = summary.errors / max(summary.total, 1)
     failures = []
     if max_regression_rate is not None and regression_rate > max_regression_rate:
         failures.append(
@@ -75,13 +78,23 @@ def evaluate_gates(
             f"average token increase {summary.avg_token_delta:.1f} exceeds "
             f"{max_avg_token_increase:.1f}"
         )
+    if min_avg_similarity is not None and summary.avg_similarity < min_avg_similarity:
+        failures.append(
+            f"average similarity {summary.avg_similarity:.1%} is below {min_avg_similarity:.1%}"
+        )
+    if max_error_rate is not None and error_rate > max_error_rate:
+        failures.append(f"error rate {error_rate:.1%} exceeds {max_error_rate:.1%}")
     return {
         "passed": not failures,
         "regression_rate": round(regression_rate, 4),
+        "error_rate": round(error_rate, 4),
+        "avg_similarity": summary.avg_similarity,
         "limits": {
             "max_regression_rate": max_regression_rate,
             "max_avg_latency_increase_ms": max_avg_latency_increase_ms,
             "max_avg_token_increase": max_avg_token_increase,
+            "min_avg_similarity": min_avg_similarity,
+            "max_error_rate": max_error_rate,
         },
         "failures": failures,
     }

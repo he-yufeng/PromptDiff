@@ -134,3 +134,24 @@ def test_evaluate_gates_reports_budget_failures():
 
     assert gates["passed"] is False
     assert len(gates["failures"]) == 2
+
+
+def test_evaluate_gates_checks_similarity_and_error_rate():
+    summary = DiffSummary(
+        total=10,
+        improved=0,
+        regressed=1,
+        unchanged=7,
+        errors=2,
+        avg_similarity=0.79,
+        avg_latency_delta_ms=0.0,
+        avg_token_delta=0.0,
+    )
+
+    gates = evaluate_gates(summary, min_avg_similarity=0.8, max_error_rate=0.1)
+
+    assert gates["passed"] is False
+    assert gates["error_rate"] == 0.2
+    assert gates["avg_similarity"] == 0.79
+    assert gates["limits"]["min_avg_similarity"] == 0.8
+    assert len(gates["failures"]) == 2

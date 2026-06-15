@@ -96,6 +96,8 @@ promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl \
 ```bash
 promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl \
   --max-regression-rate 0.05 \
+  --min-avg-similarity 0.90 \
+  --max-error-rate 0.01 \
   --max-avg-latency-increase 150 \
   --max-avg-token-increase 20 \
   --json-output results.json

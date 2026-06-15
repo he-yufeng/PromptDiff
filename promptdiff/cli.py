@@ -79,6 +79,8 @@ def validate(prompt: str, test_cases: str, min_cases: int):
 @click.option("--max-regression-rate", type=float, help="Maximum allowed fraction of regressed cases (0-1).")
 @click.option("--max-avg-latency-increase", type=float, help="Maximum allowed average latency increase in ms.")
 @click.option("--max-avg-token-increase", type=float, help="Maximum allowed average output-token increase.")
+@click.option("--min-avg-similarity", type=float, help="Minimum allowed average output similarity (0-1).")
+@click.option("--max-error-rate", type=float, help="Maximum allowed fraction of errored cases (0-1).")
 def compare(
     prompt_a: str,
     prompt_b: str,
@@ -100,6 +102,8 @@ def compare(
     max_regression_rate: float | None,
     max_avg_latency_increase: float | None,
     max_avg_token_increase: float | None,
+    min_avg_similarity: float | None,
+    max_error_rate: float | None,
 ):
     """Compare two prompt versions against test cases.
 
@@ -119,6 +123,10 @@ def compare(
         raise click.UsageError("--max-avg-latency-increase must be zero or greater")
     if max_avg_token_increase is not None and max_avg_token_increase < 0:
         raise click.UsageError("--max-avg-token-increase must be zero or greater")
+    if min_avg_similarity is not None and not 0 <= min_avg_similarity <= 1:
+        raise click.UsageError("--min-avg-similarity must be between 0 and 1")
+    if max_error_rate is not None and not 0 <= max_error_rate <= 1:
+        raise click.UsageError("--max-error-rate must be between 0 and 1")
 
     console.print(f"[bold]Running {len(inputs)} test cases through [blue]{model}[/blue]...[/bold]")
 
@@ -170,6 +178,8 @@ def compare(
         max_regression_rate=max_regression_rate,
         max_avg_latency_increase_ms=max_avg_latency_increase,
         max_avg_token_increase=max_avg_token_increase,
+        min_avg_similarity=min_avg_similarity,
+        max_error_rate=max_error_rate,
     )
     if gates["failures"]:
         console.print("\n[red]Regression budget failed:[/red]")

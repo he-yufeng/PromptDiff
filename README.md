@@ -114,6 +114,8 @@ Set practical budgets when a small number of changes is acceptable but cost or l
 ```bash
 promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl \
   --max-regression-rate 0.05 \
+  --min-avg-similarity 0.90 \
+  --max-error-rate 0.01 \
   --max-avg-latency-increase 150 \
   --max-avg-token-increase 20 \
   --json-output results.json
@@ -155,6 +157,8 @@ Options:
   --fail-on-regression      Exit code 1 if regressions found
   --fail-on-error           Exit code 1 if any prompt run errors
   --max-regression-rate FLOAT
+  --min-avg-similarity FLOAT
+  --max-error-rate FLOAT
   --max-avg-latency-increase FLOAT
   --max-avg-token-increase FLOAT
 ```

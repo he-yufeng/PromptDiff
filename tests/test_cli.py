@@ -172,3 +172,47 @@ def test_regression_budget_exits_nonzero(tmp_path, monkeypatch):
 
     assert result.exit_code == 1
     assert "Regression budget failed" in result.output
+
+
+def test_similarity_budget_exits_nonzero(tmp_path, monkeypatch):
+    monkeypatch.setattr("promptdiff.cli.PromptRunner", _DummyRunner)
+    monkeypatch.setattr("promptdiff.cli._run_both", _fake_regression_run)
+    prompt_a, prompt_b, cases = _write_inputs(tmp_path)
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "compare",
+            str(prompt_a),
+            str(prompt_b),
+            str(cases),
+            "--no-semantic",
+            "--min-avg-similarity",
+            "0.9",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "average similarity" in result.output
+
+
+def test_error_rate_budget_exits_nonzero(tmp_path, monkeypatch):
+    monkeypatch.setattr("promptdiff.cli.PromptRunner", _DummyRunner)
+    monkeypatch.setattr("promptdiff.cli._run_both", _fake_error_run)
+    prompt_a, prompt_b, cases = _write_inputs(tmp_path)
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "compare",
+            str(prompt_a),
+            str(prompt_b),
+            str(cases),
+            "--no-semantic",
+            "--max-error-rate",
+            "0",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "error rate" in result.output

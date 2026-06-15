@@ -35,6 +35,31 @@ async def _fake_error_run(_runner, _prompt_a, _prompt_b, inputs):
     )
 
 
+async def _fake_regression_run(_runner, _prompt_a, _prompt_b, inputs):
+    return (
+        [
+            RunResult(
+                input_text=inputs[0],
+                output="the expected answer",
+                model="test-model",
+                latency_ms=10.0,
+                tokens_in=1,
+                tokens_out=1,
+            )
+        ],
+        [
+            RunResult(
+                input_text=inputs[0],
+                output="completely different",
+                model="test-model",
+                latency_ms=40.0,
+                tokens_in=1,
+                tokens_out=5,
+            )
+        ],
+    )
+
+
 def _write_inputs(tmp_path):
     prompt_a = tmp_path / "a.txt"
     prompt_b = tmp_path / "b.txt"
@@ -125,3 +150,25 @@ def test_validate_command_rejects_too_few_cases(tmp_path):
 
     assert result.exit_code != 0
     assert "Only found 1 test case" in result.output
+
+
+def test_regression_budget_exits_nonzero(tmp_path, monkeypatch):
+    monkeypatch.setattr("promptdiff.cli.PromptRunner", _DummyRunner)
+    monkeypatch.setattr("promptdiff.cli._run_both", _fake_regression_run)
+    prompt_a, prompt_b, cases = _write_inputs(tmp_path)
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "compare",
+            str(prompt_a),
+            str(prompt_b),
+            str(cases),
+            "--no-semantic",
+            "--max-regression-rate",
+            "0.5",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Regression budget failed" in result.output

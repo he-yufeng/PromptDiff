@@ -109,6 +109,18 @@ promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl \
   --fail-on-regression --fail-on-error --json-output results.json
 ```
 
+Set practical budgets when a small number of changes is acceptable but cost or latency drift is not:
+
+```bash
+promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl \
+  --max-regression-rate 0.05 \
+  --max-avg-latency-increase 150 \
+  --max-avg-token-increase 20 \
+  --json-output results.json
+```
+
+The command exits with code 1 when any configured budget is exceeded, and writes the gate result into JSON output.
+
 ### Adjust sensitivity
 
 Lower threshold = more permissive (fewer false regressions):
@@ -142,6 +154,9 @@ Options:
   --no-semantic             Use lexical similarity instead of embeddings
   --fail-on-regression      Exit code 1 if regressions found
   --fail-on-error           Exit code 1 if any prompt run errors
+  --max-regression-rate FLOAT
+  --max-avg-latency-increase FLOAT
+  --max-avg-token-increase FLOAT
 ```
 
 ## Test Case Formats

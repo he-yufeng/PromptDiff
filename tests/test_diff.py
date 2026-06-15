@@ -2,7 +2,7 @@
 
 import json
 
-from promptdiff.diff import ChangeType, PromptDiff
+from promptdiff.diff import ChangeType, DiffSummary, PromptDiff, evaluate_gates
 from promptdiff.runner import RunResult
 
 
@@ -111,3 +111,26 @@ class TestPromptDiff:
         case = differ.compare_pair(a, b)
         # these share most words but not all, so similarity < 0.99
         assert case.change == ChangeType.REGRESSED
+
+
+def test_evaluate_gates_reports_budget_failures():
+    summary = DiffSummary(
+        total=10,
+        improved=0,
+        regressed=2,
+        unchanged=8,
+        errors=0,
+        avg_similarity=0.9,
+        avg_latency_delta_ms=120.0,
+        avg_token_delta=8.0,
+    )
+
+    gates = evaluate_gates(
+        summary,
+        max_regression_rate=0.1,
+        max_avg_latency_increase_ms=100,
+        max_avg_token_increase=10,
+    )
+
+    assert gates["passed"] is False
+    assert len(gates["failures"]) == 2

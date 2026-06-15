@@ -91,6 +91,18 @@ promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl \
   --fail-on-regression --json-output results.json
 ```
 
+如果允许少量变化，但要严格控制回归比例、延迟和 token 成本，可以直接设置预算门禁：
+
+```bash
+promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl \
+  --max-regression-rate 0.05 \
+  --max-avg-latency-increase 150 \
+  --max-avg-token-increase 20 \
+  --json-output results.json
+```
+
+任一预算超标时命令会返回退出码 1，JSON 结果里也会记录具体失败原因。
+
 ### 先看最危险的 case
 
 终端报告默认按严重程度排序：先显示 prompt 运行错误，再显示相似度最低的回归 case，然后才是改进和未变化的 case。这样 review 时不用从几十条样例里自己找重点。如果你想保留测试用例原始顺序：

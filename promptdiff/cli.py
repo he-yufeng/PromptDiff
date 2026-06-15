@@ -8,7 +8,7 @@ import sys
 import click
 from rich.console import Console
 
-from promptdiff.diff import ChangeType, PromptDiff
+from promptdiff.diff import ChangeType, PromptDiff, evaluate_gates
 from promptdiff.judge import judge_case
 from promptdiff.loader import load_prompt, load_test_cases
 from promptdiff.report import DiffReport
@@ -76,6 +76,9 @@ def validate(prompt: str, test_cases: str, min_cases: int):
 @click.option("--no-semantic", is_flag=True, help="Use lexical similarity instead of embeddings.")
 @click.option("--fail-on-regression", is_flag=True, help="Exit with code 1 if any regressions found (for CI).")
 @click.option("--fail-on-error", is_flag=True, help="Exit with code 1 if any prompt run errors occur (for CI).")
+@click.option("--max-regression-rate", type=float, help="Maximum allowed fraction of regressed cases (0-1).")
+@click.option("--max-avg-latency-increase", type=float, help="Maximum allowed average latency increase in ms.")
+@click.option("--max-avg-token-increase", type=float, help="Maximum allowed average output-token increase.")
 def compare(
     prompt_a: str,
     prompt_b: str,
@@ -94,6 +97,9 @@ def compare(
     no_semantic: bool,
     fail_on_regression: bool,
     fail_on_error: bool,
+    max_regression_rate: float | None,
+    max_avg_latency_increase: float | None,
+    max_avg_token_increase: float | None,
 ):
     """Compare two prompt versions against test cases.
 
@@ -107,6 +113,12 @@ def compare(
     if not inputs:
         console.print("[red]No test cases found.[/red]")
         sys.exit(1)
+    if max_regression_rate is not None and not 0 <= max_regression_rate <= 1:
+        raise click.UsageError("--max-regression-rate must be between 0 and 1")
+    if max_avg_latency_increase is not None and max_avg_latency_increase < 0:
+        raise click.UsageError("--max-avg-latency-increase must be zero or greater")
+    if max_avg_token_increase is not None and max_avg_token_increase < 0:
+        raise click.UsageError("--max-avg-token-increase must be zero or greater")
 
     console.print(f"[bold]Running {len(inputs)} test cases through [blue]{model}[/blue]...[/bold]")
 
@@ -153,13 +165,28 @@ def compare(
         sort_by=sort_by,
     )
 
+    gates = evaluate_gates(
+        summary,
+        max_regression_rate=max_regression_rate,
+        max_avg_latency_increase_ms=max_avg_latency_increase,
+        max_avg_token_increase=max_avg_token_increase,
+    )
+    if gates["failures"]:
+        console.print("\n[red]Regression budget failed:[/red]")
+        for failure in gates["failures"]:
+            console.print(f"[red]- {failure}[/red]")
+
     if json_output:
         from pathlib import Path
 
-        Path(json_output).write_text(differ.to_json(diffs, summary), encoding="utf-8")
+        Path(json_output).write_text(differ.to_json(diffs, summary, gates=gates), encoding="utf-8")
         console.print(f"\n[dim]JSON results written to {json_output}[/dim]")
 
-    if (fail_on_regression and summary.regressed > 0) or (fail_on_error and summary.errors > 0):
+    if (
+        (fail_on_regression and summary.regressed > 0)
+        or (fail_on_error and summary.errors > 0)
+        or not gates["passed"]
+    ):
         sys.exit(1)
 
 

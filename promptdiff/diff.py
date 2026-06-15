@@ -49,6 +49,44 @@ class DiffSummary:
     avg_token_delta: float
 
 
+def evaluate_gates(
+    summary: DiffSummary,
+    max_regression_rate: float | None = None,
+    max_avg_latency_increase_ms: float | None = None,
+    max_avg_token_increase: float | None = None,
+) -> dict:
+    """Evaluate CI budgets against the aggregate diff."""
+    regression_rate = summary.regressed / max(summary.total, 1)
+    failures = []
+    if max_regression_rate is not None and regression_rate > max_regression_rate:
+        failures.append(
+            f"regression rate {regression_rate:.1%} exceeds {max_regression_rate:.1%}"
+        )
+    if (
+        max_avg_latency_increase_ms is not None
+        and summary.avg_latency_delta_ms > max_avg_latency_increase_ms
+    ):
+        failures.append(
+            f"average latency increase {summary.avg_latency_delta_ms:.1f}ms exceeds "
+            f"{max_avg_latency_increase_ms:.1f}ms"
+        )
+    if max_avg_token_increase is not None and summary.avg_token_delta > max_avg_token_increase:
+        failures.append(
+            f"average token increase {summary.avg_token_delta:.1f} exceeds "
+            f"{max_avg_token_increase:.1f}"
+        )
+    return {
+        "passed": not failures,
+        "regression_rate": round(regression_rate, 4),
+        "limits": {
+            "max_regression_rate": max_regression_rate,
+            "max_avg_latency_increase_ms": max_avg_latency_increase_ms,
+            "max_avg_token_increase": max_avg_token_increase,
+        },
+        "failures": failures,
+    }
+
+
 class PromptDiff:
     """Compute behavioral diffs between two prompt versions."""
 
@@ -166,37 +204,40 @@ class PromptDiff:
         return diffs, summary
 
     def to_json(
-        self, diffs: list[CaseDiff], summary: DiffSummary
+        self,
+        diffs: list[CaseDiff],
+        summary: DiffSummary,
+        gates: dict | None = None,
     ) -> str:
         """Serialize diff results to JSON."""
-        return json.dumps(
-            {
-                "summary": {
-                    "total": summary.total,
-                    "improved": summary.improved,
-                    "regressed": summary.regressed,
-                    "unchanged": summary.unchanged,
-                    "errors": summary.errors,
-                    "avg_similarity": summary.avg_similarity,
-                    "avg_latency_delta_ms": summary.avg_latency_delta_ms,
-                    "avg_token_delta": summary.avg_token_delta,
-                },
-                "cases": [
-                    {
-                        "input": d.input_text,
-                        "output_a": d.output_a,
-                        "output_b": d.output_b,
-                        "change": d.change.value,
-                        "similarity": d.similarity,
-                        "latency_delta_ms": d.latency_delta_ms,
-                        "token_delta": d.token_delta,
-                        "judge_verdict": d.judge_verdict,
-                        "judge_reason": d.judge_reason,
-                        "error_a": d.error_a,
-                        "error_b": d.error_b,
-                    }
-                    for d in diffs
-                ],
+        payload = {
+            "summary": {
+                "total": summary.total,
+                "improved": summary.improved,
+                "regressed": summary.regressed,
+                "unchanged": summary.unchanged,
+                "errors": summary.errors,
+                "avg_similarity": summary.avg_similarity,
+                "avg_latency_delta_ms": summary.avg_latency_delta_ms,
+                "avg_token_delta": summary.avg_token_delta,
             },
-            indent=2,
-        )
+            "cases": [
+                {
+                    "input": d.input_text,
+                    "output_a": d.output_a,
+                    "output_b": d.output_b,
+                    "change": d.change.value,
+                    "similarity": d.similarity,
+                    "latency_delta_ms": d.latency_delta_ms,
+                    "token_delta": d.token_delta,
+                    "judge_verdict": d.judge_verdict,
+                    "judge_reason": d.judge_reason,
+                    "error_a": d.error_a,
+                    "error_b": d.error_b,
+                }
+                for d in diffs
+            ],
+        }
+        if gates is not None:
+            payload["gates"] = gates
+        return json.dumps(payload, indent=2)

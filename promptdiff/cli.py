@@ -79,7 +79,10 @@ def report(results: str, output: str | None, top: int, title: str):
     except (KeyError, ValueError, TypeError) as exc:
         raise click.ClickException(f"{results}: not a PromptDiff results file ({exc}).") from exc
 
-    markdown = render_markdown(diffs, summary, gates=payload.get("gates"), top_n=top, title=title)
+    threshold = payload.get("threshold", 0.85)
+    markdown = render_markdown(
+        diffs, summary, gates=payload.get("gates"), top_n=top, title=title, threshold=threshold
+    )
 
     if output:
         Path(output).write_text(markdown, encoding="utf-8")
@@ -208,6 +211,7 @@ def compare(
         verbose=verbose,
         show_unchanged=show_unchanged,
         sort_by=sort_by,
+        threshold=threshold,
     )
 
     gates = evaluate_gates(

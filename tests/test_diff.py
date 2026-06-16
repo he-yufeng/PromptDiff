@@ -2,7 +2,16 @@
 
 import json
 
-from promptdiff.diff import ChangeType, DiffSummary, PromptDiff, diffs_from_payload, evaluate_gates
+from promptdiff.diff import (
+    ChangeType,
+    DiffSummary,
+    PromptDiff,
+    Severity,
+    classify_severity,
+    diffs_from_payload,
+    evaluate_gates,
+    severity_breakdown,
+)
 from promptdiff.runner import RunResult
 
 
@@ -111,6 +120,53 @@ class TestPromptDiff:
         case = differ.compare_pair(a, b)
         # these share most words but not all, so similarity < 0.99
         assert case.change == ChangeType.REGRESSED
+
+
+class TestSeverity:
+    def test_unchanged_and_improved_have_no_severity(self):
+        assert classify_severity(ChangeType.UNCHANGED, 1.0, 0.85) is Severity.NONE
+        assert classify_severity(ChangeType.IMPROVED, 0.4, 0.85) is Severity.NONE
+
+    def test_errors_are_always_major(self):
+        assert classify_severity(ChangeType.ERROR, 0.0, 0.85) is Severity.MAJOR
+
+    def test_regression_bands_track_threshold(self):
+        # threshold 0.6: minor down to 0.4, moderate down to 0.2, major below
+        assert classify_severity(ChangeType.REGRESSED, 0.55, 0.6) is Severity.MINOR
+        assert classify_severity(ChangeType.REGRESSED, 0.30, 0.6) is Severity.MODERATE
+        assert classify_severity(ChangeType.REGRESSED, 0.05, 0.6) is Severity.MAJOR
+
+    def test_near_threshold_regression_is_minor(self):
+        assert classify_severity(ChangeType.REGRESSED, 0.84, 0.85) is Severity.MINOR
+
+    def test_zero_threshold_falls_back_to_major(self):
+        assert classify_severity(ChangeType.REGRESSED, 0.0, 0.0) is Severity.MAJOR
+
+    def test_breakdown_counts_only_risky_cases(self):
+        differ = PromptDiff(threshold=0.85, use_semantic=False)
+        a = [
+            _make_result("q1", "the quick brown fox"),
+            _make_result("q2", "stable answer"),
+            _make_result("q3", "first reply", error="boom"),
+        ]
+        b = [
+            _make_result("q1", "a totally unrelated sentence here"),  # major regression
+            _make_result("q2", "stable answer"),  # unchanged
+            _make_result("q3", "second reply"),  # error
+        ]
+        diffs, _ = differ.compare_batch(a, b)
+        counts = severity_breakdown(diffs, 0.85)
+        assert counts["major"] == 2  # the regression and the error
+        assert sum(counts.values()) == 2
+
+
+def test_to_json_records_threshold():
+    differ = PromptDiff(threshold=0.7, use_semantic=False)
+    a = [_make_result("q1", "answer A")]
+    b = [_make_result("q1", "answer A")]
+    diffs, summary = differ.compare_batch(a, b)
+    data = json.loads(differ.to_json(diffs, summary))
+    assert data["threshold"] == 0.7
 
 
 def test_diffs_from_payload_round_trip():

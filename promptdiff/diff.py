@@ -16,6 +16,48 @@ class ChangeType(str, Enum):
     ERROR = "error"
 
 
+class Severity(str, Enum):
+    """How serious a behavioural change is, for triage."""
+
+    NONE = "none"
+    MINOR = "minor"
+    MODERATE = "moderate"
+    MAJOR = "major"
+
+
+def classify_severity(change: ChangeType, similarity: float, threshold: float) -> Severity:
+    """Grade a single case so reviewers know which regressions to look at first.
+
+    Errors are always major. Regressions are graded by how far the output
+    similarity fell below the "unchanged" threshold, normalised by the threshold
+    so the bands track whatever cutoff a run used: a drop of up to a third of the
+    way to zero is minor, up to two thirds is moderate, and anything worse is
+    major. Unchanged and improved cases carry no severity.
+    """
+    if change == ChangeType.ERROR:
+        return Severity.MAJOR
+    if change != ChangeType.REGRESSED:
+        return Severity.NONE
+    if threshold <= 0:
+        return Severity.MAJOR
+    drop = (threshold - similarity) / threshold
+    if drop <= 1 / 3:
+        return Severity.MINOR
+    if drop <= 2 / 3:
+        return Severity.MODERATE
+    return Severity.MAJOR
+
+
+def severity_breakdown(diffs: list[CaseDiff], threshold: float) -> dict[str, int]:
+    """Count regressed and errored cases by severity (worst first)."""
+    counts = {Severity.MAJOR.value: 0, Severity.MODERATE.value: 0, Severity.MINOR.value: 0}
+    for d in diffs:
+        sev = classify_severity(d.change, d.similarity, threshold)
+        if sev is not Severity.NONE:
+            counts[sev.value] += 1
+    return counts
+
+
 @dataclass
 class CaseDiff:
     """Diff for a single test case."""
@@ -260,6 +302,7 @@ class PromptDiff:
     ) -> str:
         """Serialize diff results to JSON."""
         payload = {
+            "threshold": self.threshold,
             "summary": {
                 "total": summary.total,
                 "improved": summary.improved,

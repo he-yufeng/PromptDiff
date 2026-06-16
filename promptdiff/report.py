@@ -6,7 +6,14 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from promptdiff.diff import CaseDiff, ChangeType, DiffSummary
+from promptdiff.diff import (
+    CaseDiff,
+    ChangeType,
+    DiffSummary,
+    Severity,
+    classify_severity,
+    severity_breakdown,
+)
 
 _CHANGE_COLORS = {
     ChangeType.IMPROVED: "green",
@@ -21,6 +28,26 @@ _CHANGE_ICONS = {
     ChangeType.UNCHANGED: "=",
     ChangeType.ERROR: "!",
 }
+
+_SEVERITY_COLORS = {
+    Severity.MAJOR: "red",
+    Severity.MODERATE: "yellow",
+    Severity.MINOR: "dim",
+    Severity.NONE: "dim",
+}
+
+# default cutoff, kept in sync with the compare command's --threshold
+DEFAULT_THRESHOLD = 0.85
+
+
+def _severity_phrase(counts: dict[str, int]) -> str:
+    """Render a severity breakdown like '1 major, 2 moderate'."""
+    parts = [
+        f"{counts[sev.value]} {sev.value}"
+        for sev in (Severity.MAJOR, Severity.MODERATE, Severity.MINOR)
+        if counts.get(sev.value)
+    ]
+    return ", ".join(parts)
 
 
 class DiffReport:
@@ -80,11 +107,13 @@ class DiffReport:
         diffs: list[CaseDiff],
         show_unchanged: bool = False,
         sort_by: str = "severity",
+        threshold: float = DEFAULT_THRESHOLD,
     ) -> None:
         table = Table(show_header=True, header_style="bold", expand=True)
         table.add_column("#", width=3, justify="right")
         table.add_column("", width=1)  # icon
         table.add_column("Input", ratio=2)
+        table.add_column("Severity", width=9)
         table.add_column("Similarity", width=10, justify="right")
         table.add_column("Latency", width=9, justify="right")
         table.add_column("Tokens", width=8, justify="right")
@@ -95,6 +124,12 @@ class DiffReport:
 
             color = _CHANGE_COLORS[d.change]
             icon = _CHANGE_ICONS[d.change]
+            severity = classify_severity(d.change, d.similarity, threshold)
+            sev_cell = (
+                f"[{_SEVERITY_COLORS[severity]}]{severity.value}[/{_SEVERITY_COLORS[severity]}]"
+                if severity is not Severity.NONE
+                else ""
+            )
 
             # truncate long inputs for table display
             inp = d.input_text[:60] + "..." if len(d.input_text) > 60 else d.input_text
@@ -103,6 +138,7 @@ class DiffReport:
                 str(i),
                 f"[{color}]{icon}[/{color}]",
                 inp,
+                sev_cell,
                 f"[{color}]{d.similarity:.1%}[/{color}]",
                 f"{d.latency_delta_ms:+.0f}ms",
                 f"{d.token_delta:+d}",
@@ -133,11 +169,12 @@ class DiffReport:
         verbose: bool = False,
         show_unchanged: bool = False,
         sort_by: str = "severity",
+        threshold: float = DEFAULT_THRESHOLD,
     ) -> None:
         self.console.print()
         self.print_summary(summary)
         self.console.print()
-        self.print_cases(diffs, show_unchanged=show_unchanged, sort_by=sort_by)
+        self.print_cases(diffs, show_unchanged=show_unchanged, sort_by=sort_by, threshold=threshold)
 
         if verbose:
             changed = [
@@ -155,6 +192,7 @@ def render_markdown(
     gates: dict | None = None,
     top_n: int = 10,
     title: str = "PromptDiff Report",
+    threshold: float = DEFAULT_THRESHOLD,
 ) -> str:
     """Render diff results as a standalone Markdown report.
 
@@ -194,11 +232,16 @@ def render_markdown(
     if not risky:
         lines.append("No regressions.")
     else:
-        lines.append("| # | Input | Change | Similarity | Latency | Tokens |")
-        lines.append("| --- | --- | --- | --- | --- | --- |")
+        phrase = _severity_phrase(severity_breakdown(diffs, threshold))
+        if phrase:
+            lines.append(f"Severity: {phrase}.")
+            lines.append("")
+        lines.append("| # | Input | Change | Severity | Similarity | Latency | Tokens |")
+        lines.append("| --- | --- | --- | --- | --- | --- | --- |")
         for i, d in risky[:top_n]:
+            severity = classify_severity(d.change, d.similarity, threshold)
             lines.append(
-                f"| {i} | {_md_cell(d.input_text)} | {d.change.value} | "
+                f"| {i} | {_md_cell(d.input_text)} | {d.change.value} | {severity.value} | "
                 f"{d.similarity:.1%} | {d.latency_delta_ms:+.0f}ms | {d.token_delta:+d} |"
             )
 

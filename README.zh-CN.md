@@ -116,6 +116,8 @@ promptdiff report results.json -o report.md
 
 不加 `--output` 时报告直接打到 stdout，方便接到 `gh pr comment` 这类步骤里。报告包含一张汇总表、预算门禁的结论，以及按严重程度排序的最差 case。用 `--top` 控制最多列出几条。
 
+每条回归还会标上严重程度，一眼就能区分"擦边变化"和"整段重写"。等级取决于输出相似度比该次运行的阈值低多少：minor（刚刚低于）、moderate、major；运行报错一律算 major。报告里既有每条 case 的等级，也有一行汇总，比如 `Severity: 1 major, 2 moderate`。阈值会写进结果 JSON，所以 `report` 离线也能还原出同样的等级。
+
 ### 先看最危险的 case
 
 终端报告默认按严重程度排序：先显示 prompt 运行错误，再显示相似度最低的回归 case，然后才是改进和未变化的 case。这样 review 时不用从几十条样例里自己找重点。如果你想保留测试用例原始顺序：

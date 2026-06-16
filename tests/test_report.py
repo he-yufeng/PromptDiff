@@ -122,6 +122,29 @@ class TestRenderMarkdown:
         case_rows = [ln for ln in md.splitlines() if ln.startswith("| 1 |")]
         assert len(case_rows) == 1
 
+    def test_severity_column_and_breakdown(self):
+        diffs = [
+            _make_diff(ChangeType.REGRESSED, sim=0.1),  # major
+            _make_diff(ChangeType.REGRESSED, sim=0.8),  # minor
+        ]
+        summary = self._summary(total=2, regressed=2, unchanged=0)
+        md = render_markdown(diffs, summary, threshold=0.85)
+
+        assert "Severity:" in md
+        assert "1 major" in md
+        assert "1 minor" in md
+        # the table gained a Severity column
+        assert "| # | Input | Change | Severity | Similarity | Latency | Tokens |" in md
+        major_rows = [ln for ln in md.splitlines() if ln.startswith("| ") and "| major |" in ln]
+        assert len(major_rows) == 1
+
+    def test_no_severity_line_when_clean(self):
+        md = render_markdown(
+            [_make_diff(ChangeType.UNCHANGED)], self._summary(regressed=0, unchanged=2)
+        )
+        assert "Severity:" not in md
+        assert "No regressions." in md
+
     def test_top_n_limits_listed_cases(self):
         diffs = [
             _make_diff(ChangeType.REGRESSED, sim=0.81),

@@ -181,6 +181,16 @@ def test_report_renders_markdown_to_stdout(tmp_path):
     assert "pipe \\| case" in result.output
 
 
+def test_report_includes_severity_breakdown(tmp_path):
+    results = _write_results(tmp_path)
+
+    result = CliRunner().invoke(main, ["report", str(results)])
+
+    assert result.exit_code == 0, result.output
+    assert "Severity:" in result.output
+    assert "| # | Input | Change | Severity | Similarity | Latency | Tokens |" in result.output
+
+
 def test_report_writes_output_file(tmp_path):
     results = _write_results(tmp_path)
     out = tmp_path / "report.md"

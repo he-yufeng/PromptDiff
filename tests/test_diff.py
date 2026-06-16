@@ -2,7 +2,7 @@
 
 import json
 
-from promptdiff.diff import ChangeType, DiffSummary, PromptDiff, evaluate_gates
+from promptdiff.diff import ChangeType, DiffSummary, PromptDiff, diffs_from_payload, evaluate_gates
 from promptdiff.runner import RunResult
 
 
@@ -111,6 +111,44 @@ class TestPromptDiff:
         case = differ.compare_pair(a, b)
         # these share most words but not all, so similarity < 0.99
         assert case.change == ChangeType.REGRESSED
+
+
+def test_diffs_from_payload_round_trip():
+    differ = PromptDiff(threshold=0.85, use_semantic=False)
+    a = [
+        _make_result("q1", "the expected answer"),
+        _make_result("q2", "alpha", error="boom"),
+    ]
+    b = [
+        _make_result("q1", "completely different text", latency=200.0, tokens=80),
+        _make_result("q2", "beta"),
+    ]
+    diffs, summary = differ.compare_batch(a, b)
+
+    payload = json.loads(differ.to_json(diffs, summary, gates={"passed": True}))
+    restored_diffs, restored_summary = diffs_from_payload(payload)
+
+    assert restored_summary == summary
+    assert restored_diffs == diffs
+
+
+def test_diffs_from_payload_rejects_unknown_change():
+    payload = {
+        "summary": {
+            "total": 1, "improved": 0, "regressed": 0, "unchanged": 1, "errors": 0,
+            "avg_similarity": 1.0, "avg_latency_delta_ms": 0.0, "avg_token_delta": 0.0,
+        },
+        "cases": [{
+            "input": "q", "output_a": "x", "output_b": "x", "change": "bogus",
+            "similarity": 1.0, "latency_delta_ms": 0.0, "token_delta": 0,
+        }],
+    }
+    try:
+        diffs_from_payload(payload)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("expected ValueError for unknown change type")
 
 
 def test_evaluate_gates_reports_budget_failures():

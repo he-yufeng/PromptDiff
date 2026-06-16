@@ -8,10 +8,10 @@ import sys
 import click
 from rich.console import Console
 
-from promptdiff.diff import ChangeType, PromptDiff, evaluate_gates
+from promptdiff.diff import ChangeType, PromptDiff, diffs_from_payload, evaluate_gates
 from promptdiff.judge import judge_case
 from promptdiff.loader import load_prompt, load_test_cases
-from promptdiff.report import DiffReport
+from promptdiff.report import DiffReport, render_markdown
 from promptdiff.runner import PromptRunner, RunConfig
 
 console = Console()
@@ -49,6 +49,43 @@ def validate(prompt: str, test_cases: str, min_cases: int):
     console.print("[green]PromptDiff inputs look valid.[/green]")
     console.print(f"[bold]Prompt chars:[/bold] {len(prompt_text):,}")
     console.print(f"[bold]Test cases:[/bold] {len(inputs):,}")
+
+
+@main.command()
+@click.argument("results", type=click.Path(exists=True))
+@click.option("--output", "-o", type=click.Path(), default=None, help="Write Markdown to a file instead of stdout.")
+@click.option("--top", default=10, type=int, help="Maximum number of regressed cases to list.")
+@click.option("--title", default="PromptDiff Report", help="Report heading.")
+def report(results: str, output: str | None, top: int, title: str):
+    """Render a Markdown report from a saved compare JSON file.
+
+    RESULTS is a JSON file produced by `compare -o results.json`. The report is
+    offline (no LLM calls) and meant for posting as a CI comment or PR artifact.
+    """
+    import json
+    from pathlib import Path
+
+    if top <= 0:
+        raise click.UsageError("--top must be greater than zero")
+
+    raw = Path(results).read_text(encoding="utf-8")
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise click.ClickException(f"{results}: invalid JSON: {exc.msg}") from exc
+
+    try:
+        diffs, summary = diffs_from_payload(payload)
+    except (KeyError, ValueError, TypeError) as exc:
+        raise click.ClickException(f"{results}: not a PromptDiff results file ({exc}).") from exc
+
+    markdown = render_markdown(diffs, summary, gates=payload.get("gates"), top_n=top, title=title)
+
+    if output:
+        Path(output).write_text(markdown, encoding="utf-8")
+        console.print(f"[dim]Markdown report written to {output}[/dim]")
+    else:
+        click.echo(markdown)
 
 
 @main.command()

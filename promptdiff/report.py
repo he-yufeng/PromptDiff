@@ -147,3 +147,80 @@ class DiffReport:
             ]
             for i, d in changed:
                 self.print_detail(d, index=i)
+
+
+def render_markdown(
+    diffs: list[CaseDiff],
+    summary: DiffSummary,
+    gates: dict | None = None,
+    top_n: int = 10,
+    title: str = "PromptDiff Report",
+) -> str:
+    """Render diff results as a standalone Markdown report.
+
+    Suitable for posting as a CI comment or PR artifact. No LLM calls.
+    """
+    lines = [f"# {title}", "", _headline(summary), ""]
+
+    lines.append("| Metric | Value |")
+    lines.append("| --- | --- |")
+    lines.append(f"| Total cases | {summary.total} |")
+    lines.append(f"| Unchanged | {summary.unchanged} |")
+    lines.append(f"| Regressed | {summary.regressed} |")
+    lines.append(f"| Improved | {summary.improved} |")
+    lines.append(f"| Errors | {summary.errors} |")
+    lines.append(f"| Avg similarity | {summary.avg_similarity:.2%} |")
+    lines.append(f"| Avg latency delta | {summary.avg_latency_delta_ms:+.0f}ms |")
+    lines.append(f"| Avg token delta | {summary.avg_token_delta:+.0f} |")
+    lines.append("")
+
+    if gates is not None:
+        lines.append("## Regression budget")
+        lines.append("")
+        lines.append("Status: passed" if gates.get("passed", True) else "Status: failed")
+        lines.append("")
+        for failure in gates.get("failures") or []:
+            lines.append(f"- {failure}")
+        if gates.get("failures"):
+            lines.append("")
+
+    lines.append("## Top regressed cases")
+    lines.append("")
+    risky = [
+        (i, d)
+        for i, d in DiffReport._ordered_cases(diffs, "severity")
+        if d.change in (ChangeType.REGRESSED, ChangeType.ERROR)
+    ]
+    if not risky:
+        lines.append("No regressions.")
+    else:
+        lines.append("| # | Input | Change | Similarity | Latency | Tokens |")
+        lines.append("| --- | --- | --- | --- | --- | --- |")
+        for i, d in risky[:top_n]:
+            lines.append(
+                f"| {i} | {_md_cell(d.input_text)} | {d.change.value} | "
+                f"{d.similarity:.1%} | {d.latency_delta_ms:+.0f}ms | {d.token_delta:+d} |"
+            )
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _headline(summary: DiffSummary) -> str:
+    parts = []
+    if summary.unchanged:
+        parts.append(f"{summary.unchanged} unchanged")
+    if summary.regressed:
+        parts.append(f"{summary.regressed} regressed")
+    if summary.improved:
+        parts.append(f"{summary.improved} improved")
+    if summary.errors:
+        parts.append(f"{summary.errors} errors")
+    return f"**{summary.total} cases**: " + (", ".join(parts) if parts else "no differences")
+
+
+def _md_cell(text: str, width: int = 60) -> str:
+    """Flatten text into a single Markdown table cell."""
+    cell = " ".join(text.split())
+    if len(cell) > width:
+        cell = cell[: width - 3] + "..."
+    return cell.replace("|", "\\|")

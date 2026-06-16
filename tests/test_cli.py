@@ -1,6 +1,7 @@
 from click.testing import CliRunner
 
 from promptdiff.cli import main
+from promptdiff.diff import PromptDiff, evaluate_gates
 from promptdiff.runner import RunResult
 
 
@@ -150,6 +151,74 @@ def test_validate_command_rejects_too_few_cases(tmp_path):
 
     assert result.exit_code != 0
     assert "Only found 1 test case" in result.output
+
+
+def _rr(inp, out, latency=10.0, tokens=1):
+    return RunResult(input_text=inp, output=out, model="m", latency_ms=latency, tokens_in=1, tokens_out=tokens)
+
+
+def _write_results(tmp_path, *, with_gate_failure=False):
+    differ = PromptDiff(threshold=0.85, use_semantic=False)
+    a = [_rr("q1", "the expected answer"), _rr("pipe | case", "same here")]
+    b = [_rr("q1", "completely different", latency=40.0, tokens=6), _rr("pipe | case", "totally other text")]
+    diffs, summary = differ.compare_batch(a, b)
+    gates = evaluate_gates(summary, max_regression_rate=0.0 if with_gate_failure else None)
+    path = tmp_path / "results.json"
+    path.write_text(differ.to_json(diffs, summary, gates=gates), encoding="utf-8")
+    return path
+
+
+def test_report_renders_markdown_to_stdout(tmp_path):
+    results = _write_results(tmp_path, with_gate_failure=True)
+
+    result = CliRunner().invoke(main, ["report", str(results)])
+
+    assert result.exit_code == 0, result.output
+    assert "# PromptDiff Report" in result.output
+    assert "## Top regressed cases" in result.output
+    assert "Status: failed" in result.output
+    # input containing a pipe is escaped so the table stays intact
+    assert "pipe \\| case" in result.output
+
+
+def test_report_writes_output_file(tmp_path):
+    results = _write_results(tmp_path)
+    out = tmp_path / "report.md"
+
+    result = CliRunner().invoke(main, ["report", str(results), "--output", str(out)])
+
+    assert result.exit_code == 0, result.output
+    assert out.exists()
+    assert out.read_text(encoding="utf-8").startswith("# PromptDiff Report")
+
+
+def test_report_rejects_invalid_json(tmp_path):
+    bad = tmp_path / "bad.json"
+    bad.write_text("{ not json", encoding="utf-8")
+
+    result = CliRunner().invoke(main, ["report", str(bad)])
+
+    assert result.exit_code != 0
+    assert "invalid JSON" in result.output
+
+
+def test_report_rejects_non_results_json(tmp_path):
+    other = tmp_path / "other.json"
+    other.write_text('{"hello": "world"}', encoding="utf-8")
+
+    result = CliRunner().invoke(main, ["report", str(other)])
+
+    assert result.exit_code != 0
+    assert "not a PromptDiff results file" in result.output
+
+
+def test_report_rejects_non_positive_top(tmp_path):
+    results = _write_results(tmp_path)
+
+    result = CliRunner().invoke(main, ["report", str(results), "--top", "0"])
+
+    assert result.exit_code != 0
+    assert "--top must be greater than zero" in result.output
 
 
 def test_regression_budget_exits_nonzero(tmp_path, monkeypatch):

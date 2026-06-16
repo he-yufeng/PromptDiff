@@ -100,6 +100,42 @@ def evaluate_gates(
     }
 
 
+def diffs_from_payload(payload: dict) -> tuple[list[CaseDiff], DiffSummary]:
+    """Reconstruct diffs and summary from a serialized results payload.
+
+    Inverse of PromptDiff.to_json, used to render reports from a saved run
+    without re-calling the model.
+    """
+    s = payload["summary"]
+    summary = DiffSummary(
+        total=s["total"],
+        improved=s["improved"],
+        regressed=s["regressed"],
+        unchanged=s["unchanged"],
+        errors=s["errors"],
+        avg_similarity=s["avg_similarity"],
+        avg_latency_delta_ms=s["avg_latency_delta_ms"],
+        avg_token_delta=s["avg_token_delta"],
+    )
+    diffs = [
+        CaseDiff(
+            input_text=c["input"],
+            output_a=c.get("output_a", ""),
+            output_b=c.get("output_b", ""),
+            change=ChangeType(c["change"]),
+            similarity=c["similarity"],
+            latency_delta_ms=c["latency_delta_ms"],
+            token_delta=c["token_delta"],
+            judge_verdict=c.get("judge_verdict"),
+            judge_reason=c.get("judge_reason"),
+            error_a=c.get("error_a"),
+            error_b=c.get("error_b"),
+        )
+        for c in payload["cases"]
+    ]
+    return diffs, summary
+
+
 class PromptDiff:
     """Compute behavioral diffs between two prompt versions."""
 

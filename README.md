@@ -123,6 +123,17 @@ promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl \
 
 The command exits with code 1 when any configured budget is exceeded, and writes the gate result into JSON output.
 
+### Markdown report for PR comments
+
+Turn a saved results file into a Markdown summary you can paste into a PR comment or attach as a CI artifact. It is offline and never calls the model:
+
+```bash
+promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl -o results.json
+promptdiff report results.json -o report.md
+```
+
+Without `--output` the report goes to stdout, which is convenient for piping into a `gh pr comment` step. The report has a summary table, the regression-budget verdict, and the worst cases ordered by severity. Use `--top` to cap how many cases are listed.
+
 ### Adjust sensitivity
 
 Lower threshold = more permissive (fewer false regressions):

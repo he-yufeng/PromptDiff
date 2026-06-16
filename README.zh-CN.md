@@ -105,6 +105,17 @@ promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl \
 
 任一预算超标时命令会返回退出码 1，JSON 结果里也会记录具体失败原因。
 
+### 生成 Markdown 报告贴到 PR
+
+把保存下来的结果文件转成一份 Markdown 摘要，可以直接贴进 PR comment 或作为 CI 产物上传。这一步完全离线，不会再调用模型：
+
+```bash
+promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl -o results.json
+promptdiff report results.json -o report.md
+```
+
+不加 `--output` 时报告直接打到 stdout，方便接到 `gh pr comment` 这类步骤里。报告包含一张汇总表、预算门禁的结论，以及按严重程度排序的最差 case。用 `--top` 控制最多列出几条。
+
 ### 先看最危险的 case
 
 终端报告默认按严重程度排序：先显示 prompt 运行错误，再显示相似度最低的回归 case，然后才是改进和未变化的 case。这样 review 时不用从几十条样例里自己找重点。如果你想保留测试用例原始顺序：

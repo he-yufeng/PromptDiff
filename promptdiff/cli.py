@@ -11,7 +11,7 @@ from rich.console import Console
 from promptdiff.diff import ChangeType, PromptDiff, diffs_from_payload, evaluate_gates
 from promptdiff.judge import judge_case
 from promptdiff.loader import load_prompt, load_test_cases
-from promptdiff.report import DiffReport, render_markdown
+from promptdiff.report import DiffReport, render_junit_xml, render_markdown
 from promptdiff.runner import PromptRunner, RunConfig
 
 console = Console()
@@ -112,6 +112,12 @@ def report(results: str, output: str | None, top: int, title: str):
     help="Case ordering in terminal reports.",
 )
 @click.option("--json-output", "-o", type=click.Path(), default=None, help="Write JSON results to file.")
+@click.option(
+    "--junit-xml",
+    type=click.Path(),
+    default=None,
+    help="Write a JUnit XML report to file (for CI test-report dashboards).",
+)
 @click.option("--concurrency", "-c", default=5, type=int, help="Max concurrent API calls.")
 @click.option("--no-semantic", is_flag=True, help="Use lexical similarity instead of embeddings.")
 @click.option("--fail-on-regression", is_flag=True, help="Exit with code 1 if any regressions found (for CI).")
@@ -135,6 +141,7 @@ def compare(
     show_unchanged: bool,
     sort_by: str,
     json_output: str | None,
+    junit_xml: str | None,
     concurrency: int,
     no_semantic: bool,
     fail_on_regression: bool,
@@ -232,6 +239,14 @@ def compare(
 
         Path(json_output).write_text(differ.to_json(diffs, summary, gates=gates), encoding="utf-8")
         console.print(f"\n[dim]JSON results written to {json_output}[/dim]")
+
+    if junit_xml:
+        from pathlib import Path
+
+        Path(junit_xml).write_text(
+            render_junit_xml(diffs, summary, threshold=threshold), encoding="utf-8"
+        )
+        console.print(f"[dim]JUnit XML written to {junit_xml}[/dim]")
 
     if (
         (fail_on_regression and summary.regressed > 0)

@@ -1,11 +1,12 @@
 """Tests for the report module."""
 
+import xml.etree.ElementTree as ET
 from io import StringIO
 
 from rich.console import Console
 
 from promptdiff.diff import CaseDiff, ChangeType, DiffSummary
-from promptdiff.report import DiffReport, render_markdown
+from promptdiff.report import DiffReport, render_junit_xml, render_markdown
 
 
 def _make_diff(change: ChangeType, sim: float = 0.9) -> CaseDiff:
@@ -158,3 +159,67 @@ class TestRenderMarkdown:
         assert "0.0%" in md
         assert "22.0%" in md
         assert "81.0%" not in md
+
+
+class TestRenderJunitXml:
+    def test_marks_regressions_and_errors_and_passes(self):
+        diffs = [
+            _make_diff(ChangeType.UNCHANGED, sim=0.95),
+            _make_diff(ChangeType.IMPROVED, sim=0.9),
+            _make_diff(ChangeType.REGRESSED, sim=0.4),
+            CaseDiff(
+                input_text="boom",
+                output_a="",
+                output_b="",
+                change=ChangeType.ERROR,
+                similarity=0.0,
+                latency_delta_ms=0.0,
+                token_delta=0,
+                error_b="rate limited",
+            ),
+        ]
+        summary = DiffSummary(
+            total=4, improved=1, regressed=1, unchanged=1, errors=1,
+            avg_similarity=0.56, avg_latency_delta_ms=10.0, avg_token_delta=3.0,
+        )
+
+        xml = render_junit_xml(diffs, summary)
+        root = ET.fromstring(xml)  # raises if the XML is malformed
+        suite = root.find("testsuite")
+        assert suite is not None
+
+        assert suite.get("tests") == "4"
+        assert suite.get("failures") == "1"
+        assert suite.get("errors") == "1"
+
+        cases = suite.findall("testcase")
+        assert len(cases) == 4
+        assert sum(1 for c in cases if c.find("failure") is not None) == 1
+        assert sum(1 for c in cases if c.find("error") is not None) == 1
+        # improved / unchanged cases pass with no child element
+        assert sum(1 for c in cases if len(c) == 0) == 2
+
+    def test_escapes_special_characters(self):
+        diffs = [
+            CaseDiff(
+                input_text='compare <a> & "b"',
+                output_a="x",
+                output_b="y",
+                change=ChangeType.REGRESSED,
+                similarity=0.3,
+                latency_delta_ms=0.0,
+                token_delta=0,
+            )
+        ]
+        summary = DiffSummary(
+            total=1, improved=0, regressed=1, unchanged=0, errors=0,
+            avg_similarity=0.3, avg_latency_delta_ms=0.0, avg_token_delta=0.0,
+        )
+
+        xml = render_junit_xml(diffs, summary)
+        # parses cleanly despite raw <, & and " in the case name
+        case = ET.fromstring(xml).find("testsuite/testcase")
+        assert case is not None
+        name = case.get("name") or ""
+        assert "<a>" in name
+        assert "&" in name

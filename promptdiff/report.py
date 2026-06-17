@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -246,6 +248,97 @@ def render_markdown(
             )
 
     return "\n".join(lines).rstrip() + "\n"
+
+
+def render_junit_xml(
+    diffs: list[CaseDiff],
+    summary: DiffSummary,
+    suite_name: str = "PromptDiff",
+    threshold: float = DEFAULT_THRESHOLD,
+) -> str:
+    """Render diff results as JUnit XML.
+
+    Lets CI systems that consume JUnit reports (GitLab ``artifacts:reports:junit``,
+    Jenkins, CircleCI, GitHub test-reporter actions) surface each test case as a
+    passed test, a failure (regression) or an error, alongside the existing exit
+    code. Regressed cases become ``<failure>``, errored cases ``<error>``, and
+    improved/unchanged cases pass. No LLM calls.
+    """
+    attrs = {
+        "name": suite_name,
+        "tests": str(summary.total),
+        "failures": str(summary.regressed),
+        "errors": str(summary.errors),
+    }
+    suite = ET.Element("testsuite", attrs)
+    for index, d in enumerate(diffs, start=1):
+        case = ET.SubElement(
+            suite,
+            "testcase",
+            {"classname": suite_name, "name": _junit_case_name(index, d.input_text)},
+        )
+        if d.change == ChangeType.ERROR:
+            node = ET.SubElement(
+                case, "error", {"type": "error", "message": _junit_error_message(d)}
+            )
+            node.text = _junit_error_detail(d)
+        elif d.change == ChangeType.REGRESSED:
+            severity = classify_severity(d.change, d.similarity, threshold)
+            node = ET.SubElement(
+                case,
+                "failure",
+                {
+                    "type": "regression",
+                    "message": f"{severity.value} regression: similarity {d.similarity:.1%}",
+                },
+            )
+            node.text = _junit_failure_detail(d)
+        # improved / unchanged cases pass with no child element
+
+    root = ET.Element("testsuites", attrs)
+    root.append(suite)
+    ET.indent(root)
+    body = ET.tostring(root, encoding="unicode")
+    return '<?xml version="1.0" encoding="utf-8"?>\n' + body + "\n"
+
+
+def _junit_case_name(index: int, input_text: str) -> str:
+    snippet = " ".join(input_text.split())
+    if len(snippet) > 60:
+        snippet = snippet[:57] + "..."
+    return f"case {index}: {snippet}" if snippet else f"case {index}"
+
+
+def _junit_failure_detail(d: CaseDiff) -> str:
+    parts = [
+        f"similarity: {d.similarity:.1%}",
+        f"latency delta: {d.latency_delta_ms:+.0f}ms",
+        f"token delta: {d.token_delta:+d}",
+    ]
+    if d.judge_verdict:
+        parts.append(f"judge: {d.judge_verdict}")
+    if d.judge_reason:
+        parts.append(f"reason: {d.judge_reason}")
+    return "\n".join(parts)
+
+
+def _junit_error_message(d: CaseDiff) -> str:
+    if d.error_a and d.error_b:
+        return "both prompt versions errored"
+    if d.error_a:
+        return "prompt A errored"
+    if d.error_b:
+        return "prompt B errored"
+    return "prompt errored"
+
+
+def _junit_error_detail(d: CaseDiff) -> str:
+    parts = []
+    if d.error_a:
+        parts.append(f"A: {d.error_a}")
+    if d.error_b:
+        parts.append(f"B: {d.error_b}")
+    return "\n".join(parts)
 
 
 def _headline(summary: DiffSummary) -> str:

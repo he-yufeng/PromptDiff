@@ -116,6 +116,12 @@ promptdiff report results.json -o report.md
 
 不加 `--output` 时报告直接打到 stdout，方便接到 `gh pr comment` 这类步骤里。报告包含一张汇总表、预算门禁的结论，以及按严重程度排序的最差 case。用 `--top` 控制最多列出几条。
 
+想要 JUnit XML 接测试看板？加 `--format junit` 就能从同一份已存结果重新生成，不调用模型、不必为同一次对比再花一次钱：
+
+```bash
+promptdiff report results.json --format junit -o junit.xml
+```
+
 每条回归还会标上严重程度，一眼就能区分"擦边变化"和"整段重写"。等级取决于输出相似度比该次运行的阈值低多少：minor（刚刚低于）、moderate、major；运行报错一律算 major。报告里既有每条 case 的等级，也有一行汇总，比如 `Severity: 1 major, 2 moderate`。阈值会写进结果 JSON，所以 `report` 离线也能还原出同样的等级。
 
 ### 先看最危险的 case

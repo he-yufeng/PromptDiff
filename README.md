@@ -134,6 +134,12 @@ promptdiff report results.json -o report.md
 
 Without `--output` the report goes to stdout, which is convenient for piping into a `gh pr comment` step. The report has a summary table, the regression-budget verdict, and the worst cases ordered by severity. Use `--top` to cap how many cases are listed.
 
+Need JUnit XML for a test-report dashboard instead? Pass `--format junit` to regenerate it from the same saved results — no model calls, so you don't pay to compare twice:
+
+```bash
+promptdiff report results.json --format junit -o junit.xml
+```
+
 Each regression is also graded by severity so you can tell a near-miss from a rewrite at a glance. The grade is based on how far the output similarity fell below the threshold the run used: minor (just under), moderate, or major; errored cases are always major. The report shows the per-case grade plus a one-line breakdown like `Severity: 1 major, 2 moderate`. Because the threshold is recorded in the results JSON, `report` reproduces the same grades offline.
 
 ### Adjust sensitivity

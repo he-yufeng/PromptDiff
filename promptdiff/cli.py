@@ -53,14 +53,24 @@ def validate(prompt: str, test_cases: str, min_cases: int):
 
 @main.command()
 @click.argument("results", type=click.Path(exists=True))
-@click.option("--output", "-o", type=click.Path(), default=None, help="Write Markdown to a file instead of stdout.")
-@click.option("--top", default=10, type=int, help="Maximum number of regressed cases to list.")
-@click.option("--title", default="PromptDiff Report", help="Report heading.")
-def report(results: str, output: str | None, top: int, title: str):
-    """Render a Markdown report from a saved compare JSON file.
+@click.option("--output", "-o", type=click.Path(), default=None, help="Write the report to a file instead of stdout.")
+@click.option("--top", default=10, type=int, help="Maximum number of regressed cases to list (Markdown only).")
+@click.option("--title", default="PromptDiff Report", help="Report heading (Markdown only).")
+@click.option(
+    "--format",
+    "-f",
+    "report_format",
+    type=click.Choice(["markdown", "junit"]),
+    default="markdown",
+    help="Output format: Markdown (default) or JUnit XML.",
+)
+def report(results: str, output: str | None, top: int, title: str, report_format: str):
+    """Render a report from a saved compare JSON file.
 
     RESULTS is a JSON file produced by `compare -o results.json`. The report is
     offline (no LLM calls) and meant for posting as a CI comment or PR artifact.
+    Choose `--format junit` to regenerate JUnit XML from a saved run without
+    paying for another comparison.
     """
     import json
     from pathlib import Path
@@ -80,15 +90,20 @@ def report(results: str, output: str | None, top: int, title: str):
         raise click.ClickException(f"{results}: not a PromptDiff results file ({exc}).") from exc
 
     threshold = payload.get("threshold", 0.85)
-    markdown = render_markdown(
-        diffs, summary, gates=payload.get("gates"), top_n=top, title=title, threshold=threshold
-    )
+    if report_format == "junit":
+        text = render_junit_xml(diffs, summary, threshold=threshold)
+        label = "JUnit XML report"
+    else:
+        text = render_markdown(
+            diffs, summary, gates=payload.get("gates"), top_n=top, title=title, threshold=threshold
+        )
+        label = "Markdown report"
 
     if output:
-        Path(output).write_text(markdown, encoding="utf-8")
-        console.print(f"[dim]Markdown report written to {output}[/dim]")
+        Path(output).write_text(text, encoding="utf-8")
+        console.print(f"[dim]{label} written to {output}[/dim]")
     else:
-        click.echo(markdown)
+        click.echo(text)
 
 
 @main.command()

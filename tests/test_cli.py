@@ -231,6 +231,40 @@ def test_report_rejects_non_positive_top(tmp_path):
     assert "--top must be greater than zero" in result.output
 
 
+def test_report_renders_junit_to_stdout(tmp_path):
+    results = _write_results(tmp_path)
+
+    result = CliRunner().invoke(main, ["report", str(results), "--format", "junit"])
+
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith('<?xml version="1.0"')
+    assert '<testsuite name="PromptDiff"' in result.output
+    # the saved run has regressions, so at least one case is a JUnit <failure>
+    assert "<failure" in result.output
+
+
+def test_report_writes_junit_output_file(tmp_path):
+    results = _write_results(tmp_path)
+    out = tmp_path / "junit.xml"
+
+    result = CliRunner().invoke(
+        main, ["report", str(results), "--format", "junit", "--output", str(out)]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert out.exists()
+    assert out.read_text(encoding="utf-8").startswith('<?xml version="1.0"')
+
+
+def test_report_format_defaults_to_markdown(tmp_path):
+    results = _write_results(tmp_path)
+
+    result = CliRunner().invoke(main, ["report", str(results)])
+
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith("# PromptDiff Report")
+
+
 def test_regression_budget_exits_nonzero(tmp_path, monkeypatch):
     monkeypatch.setattr("promptdiff.cli.PromptRunner", _DummyRunner)
     monkeypatch.setattr("promptdiff.cli._run_both", _fake_regression_run)

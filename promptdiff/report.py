@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import xml.etree.ElementTree as ET
 
 from rich.console import Console
@@ -248,6 +249,106 @@ def render_markdown(
             )
 
     return "\n".join(lines).rstrip() + "\n"
+
+
+_HTML_STYLE = """
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+         margin: 2rem auto; max-width: 960px; color: #1f2328; line-height: 1.5; }
+  h1 { margin-bottom: 0.25rem; }
+  .headline { font-size: 1.1rem; color: #444; margin-top: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 0.5rem 0 1.5rem; }
+  th, td { border: 1px solid #d0d7de; padding: 0.4rem 0.6rem; text-align: left;
+           vertical-align: top; font-size: 0.9rem; }
+  table.summary { width: auto; }
+  table.summary th { background: #f6f8fa; white-space: nowrap; }
+  td.input { max-width: 28rem; word-break: break-word; white-space: pre-wrap; }
+  tr.change-regressed { background: #fde7e7; }
+  tr.change-error { background: #f6c9c9; }
+  tr.change-improved { background: #e6f4ea; }
+  .gate { font-weight: 600; }
+  .gate-passed { color: #1a7f37; }
+  .gate-failed { color: #cf222e; }
+  ul { margin-top: 0.25rem; }
+"""
+
+
+def render_html(
+    diffs: list[CaseDiff],
+    summary: DiffSummary,
+    gates: dict | None = None,
+    title: str = "PromptDiff Report",
+    threshold: float = DEFAULT_THRESHOLD,
+) -> str:
+    """Render diff results as a standalone, dependency-free HTML report.
+
+    A single self-contained file (inline CSS, no external assets or JavaScript)
+    suitable for sharing, archiving as a CI artifact, or opening in a browser for
+    a richer human review than the Markdown report. Rows are colour-coded by
+    change type and all case text is HTML-escaped. No LLM calls.
+    """
+
+    def esc(value: object) -> str:
+        return html.escape(str(value))
+
+    metrics = [
+        ("Total cases", summary.total),
+        ("Unchanged", summary.unchanged),
+        ("Regressed", summary.regressed),
+        ("Improved", summary.improved),
+        ("Errors", summary.errors),
+        ("Avg similarity", f"{summary.avg_similarity:.2%}"),
+        ("Avg latency delta", f"{summary.avg_latency_delta_ms:+.0f}ms"),
+        ("Avg token delta", f"{summary.avg_token_delta:+.0f}"),
+    ]
+    metric_rows = "".join(
+        f"<tr><th>{esc(label)}</th><td>{esc(value)}</td></tr>" for label, value in metrics
+    )
+
+    gate_section = ""
+    if gates is not None:
+        status = "passed" if gates.get("passed", True) else "failed"
+        items = "".join(f"<li>{esc(f)}</li>" for f in (gates.get("failures") or []))
+        failures_html = f"<ul>{items}</ul>" if items else ""
+        gate_section = (
+            "<h2>Regression budget</h2>"
+            f'<p class="gate gate-{status}">Status: {status}</p>{failures_html}'
+        )
+
+    case_rows = []
+    for i, d in DiffReport._ordered_cases(diffs, "severity"):
+        severity = classify_severity(d.change, d.similarity, threshold)
+        case_rows.append(
+            f'<tr class="change-{esc(d.change.value)}">'
+            f"<td>{i}</td>"
+            f'<td class="input">{esc(d.input_text)}</td>'
+            f"<td>{esc(d.change.value)}</td>"
+            f"<td>{esc(severity.value)}</td>"
+            f"<td>{d.similarity:.1%}</td>"
+            f"<td>{d.latency_delta_ms:+.0f}ms</td>"
+            f"<td>{d.token_delta:+d}</td>"
+            "</tr>"
+        )
+    cases_html = "".join(case_rows) or '<tr><td colspan="7">No cases.</td></tr>'
+
+    parts = [
+        "<!doctype html>",
+        '<html lang="en"><head><meta charset="utf-8">',
+        '<meta name="viewport" content="width=device-width, initial-scale=1">',
+        f"<title>{esc(title)}</title>",
+        f"<style>{_HTML_STYLE}</style>",
+        "</head><body>",
+        f"<h1>{esc(title)}</h1>",
+        f'<p class="headline">{esc(_headline(summary))}</p>',
+        "<h2>Summary</h2>",
+        f'<table class="summary"><tbody>{metric_rows}</tbody></table>',
+        gate_section,
+        "<h2>Cases</h2>",
+        '<table class="cases"><thead><tr><th>#</th><th>Input</th><th>Change</th>'
+        "<th>Severity</th><th>Similarity</th><th>Latency</th><th>Tokens</th></tr></thead>",
+        f"<tbody>{cases_html}</tbody></table>",
+        "</body></html>",
+    ]
+    return "\n".join(parts) + "\n"
 
 
 def render_junit_xml(

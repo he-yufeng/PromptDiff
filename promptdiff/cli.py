@@ -11,7 +11,7 @@ from rich.console import Console
 from promptdiff.diff import ChangeType, PromptDiff, diffs_from_payload, evaluate_gates
 from promptdiff.judge import judge_case
 from promptdiff.loader import load_prompt, load_test_cases
-from promptdiff.report import DiffReport, render_junit_xml, render_markdown
+from promptdiff.report import DiffReport, render_html, render_junit_xml, render_markdown
 from promptdiff.runner import PromptRunner, RunConfig
 
 console = Console()
@@ -60,9 +60,9 @@ def validate(prompt: str, test_cases: str, min_cases: int):
     "--format",
     "-f",
     "report_format",
-    type=click.Choice(["markdown", "junit"]),
+    type=click.Choice(["markdown", "junit", "html"]),
     default="markdown",
-    help="Output format: Markdown (default) or JUnit XML.",
+    help="Output format: Markdown (default), JUnit XML, or standalone HTML.",
 )
 @click.option(
     "--check",
@@ -101,6 +101,11 @@ def report(results: str, output: str | None, top: int, title: str, report_format
     if report_format == "junit":
         text = render_junit_xml(diffs, summary, threshold=threshold)
         label = "JUnit XML report"
+    elif report_format == "html":
+        text = render_html(
+            diffs, summary, gates=payload.get("gates"), title=title, threshold=threshold
+        )
+        label = "HTML report"
     else:
         text = render_markdown(
             diffs, summary, gates=payload.get("gates"), top_n=top, title=title, threshold=threshold

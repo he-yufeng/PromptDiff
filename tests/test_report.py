@@ -6,7 +6,7 @@ from io import StringIO
 from rich.console import Console
 
 from promptdiff.diff import CaseDiff, ChangeType, DiffSummary
-from promptdiff.report import DiffReport, render_junit_xml, render_markdown
+from promptdiff.report import DiffReport, render_html, render_junit_xml, render_markdown
 
 
 def _make_diff(change: ChangeType, sim: float = 0.9) -> CaseDiff:
@@ -223,3 +223,59 @@ class TestRenderJunitXml:
         name = case.get("name") or ""
         assert "<a>" in name
         assert "&" in name
+
+
+class TestRenderHtml:
+    def _summary(self, **kwargs) -> DiffSummary:
+        base = dict(
+            total=2, improved=0, regressed=1, unchanged=1, errors=0,
+            avg_similarity=0.6, avg_latency_delta_ms=10.0, avg_token_delta=5.0,
+        )
+        base.update(kwargs)
+        return DiffSummary(**base)
+
+    def test_self_contained_structure_and_case_rows(self):
+        diffs = [
+            _make_diff(ChangeType.REGRESSED, sim=0.2),
+            _make_diff(ChangeType.UNCHANGED, sim=1.0),
+        ]
+        out = render_html(diffs, self._summary(), title="v2 vs v1")
+
+        assert out.startswith("<!doctype html>")
+        # self-contained: inline styling, no external assets or scripts
+        assert "<style>" in out
+        assert "<link" not in out
+        assert "<script" not in out
+        assert "<title>v2 vs v1</title>" in out
+        assert "<h1>v2 vs v1</h1>" in out
+        assert "Total cases" in out
+        # the regressed case row is colour-coded by change type
+        assert 'class="change-regressed"' in out
+
+    def test_input_text_is_html_escaped(self):
+        diff = CaseDiff(
+            input_text="<script>alert('x')</script> & <b>",
+            output_a="a", output_b="b",
+            change=ChangeType.REGRESSED, similarity=0.1,
+            latency_delta_ms=0.0, token_delta=0,
+        )
+        out = render_html([diff], self._summary(regressed=1, unchanged=0, total=1))
+
+        # the raw markup must not survive into the document
+        assert "<script>alert" not in out
+        assert "&lt;script&gt;" in out
+        assert "&amp; &lt;b&gt;" in out
+
+    def test_gate_section_present_only_with_gates(self):
+        gates = {"passed": False, "failures": ["regression rate 100.0% exceeds 0.0%"]}
+        with_gates = render_html(
+            [_make_diff(ChangeType.REGRESSED, sim=0.3)], self._summary(), gates=gates
+        )
+        assert "Regression budget" in with_gates
+        assert "gate-failed" in with_gates
+        assert "regression rate 100.0% exceeds 0.0%" in with_gates
+
+        without = render_html(
+            [_make_diff(ChangeType.UNCHANGED)], self._summary(regressed=0, unchanged=2)
+        )
+        assert "Regression budget" not in without

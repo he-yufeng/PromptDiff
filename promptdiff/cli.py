@@ -64,13 +64,21 @@ def validate(prompt: str, test_cases: str, min_cases: int):
     default="markdown",
     help="Output format: Markdown (default) or JUnit XML.",
 )
-def report(results: str, output: str | None, top: int, title: str, report_format: str):
+@click.option(
+    "--check",
+    is_flag=True,
+    help="Exit non-zero if the regression budgets recorded in the file failed "
+    "(an offline CI gate, so an expensive compare can be gated in a later job).",
+)
+def report(results: str, output: str | None, top: int, title: str, report_format: str, check: bool):
     """Render a report from a saved compare JSON file.
 
     RESULTS is a JSON file produced by `compare -o results.json`. The report is
     offline (no LLM calls) and meant for posting as a CI comment or PR artifact.
     Choose `--format junit` to regenerate JUnit XML from a saved run without
-    paying for another comparison.
+    paying for another comparison. With `--check`, the command re-applies the
+    regression budgets recorded at compare time and exits non-zero if they
+    failed, so the gate decision can run in a separate, cheap CI step.
     """
     import json
     from pathlib import Path
@@ -104,6 +112,19 @@ def report(results: str, output: str | None, top: int, title: str, report_format
         console.print(f"[dim]{label} written to {output}[/dim]")
     else:
         click.echo(text)
+
+    if check:
+        gates = payload.get("gates")
+        if not gates:
+            raise click.ClickException(
+                f"{results}: no regression budgets were recorded, so there is nothing "
+                "to check. Rerun compare with budget flags (e.g. --max-regression-rate)."
+            )
+        if not gates.get("passed", True):
+            click.echo("Regression budget failed:", err=True)
+            for failure in gates.get("failures", []):
+                click.echo(f"  - {failure}", err=True)
+            sys.exit(1)
 
 
 @main.command()

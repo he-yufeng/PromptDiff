@@ -140,6 +140,12 @@ Need JUnit XML for a test-report dashboard instead? Pass `--format junit` to reg
 promptdiff report results.json --format junit -o junit.xml
 ```
 
+`report --check` re-applies the regression budgets recorded at compare time and exits non-zero if they failed. This lets one CI job run the expensive `compare` and upload `results.json`, while a later cheap job posts the comment and gates the build offline:
+
+```bash
+promptdiff report results.json -o report.md --check   # exits 1 if a budget failed
+```
+
 Each regression is also graded by severity so you can tell a near-miss from a rewrite at a glance. The grade is based on how far the output similarity fell below the threshold the run used: minor (just under), moderate, or major; errored cases are always major. The report shows the per-case grade plus a one-line breakdown like `Severity: 1 major, 2 moderate`. Because the threshold is recorded in the results JSON, `report` reproduces the same grades offline.
 
 ### Adjust sensitivity

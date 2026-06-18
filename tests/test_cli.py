@@ -265,6 +265,35 @@ def test_report_format_defaults_to_markdown(tmp_path):
     assert result.output.startswith("# PromptDiff Report")
 
 
+def test_report_check_passes_when_budgets_met(tmp_path):
+    results = _write_results(tmp_path)  # no recorded budget failure
+
+    result = CliRunner().invoke(main, ["report", str(results), "--check"])
+
+    assert result.exit_code == 0, result.output
+
+
+def test_report_check_fails_when_recorded_budget_failed(tmp_path):
+    results = _write_results(tmp_path, with_gate_failure=True)
+
+    result = CliRunner().invoke(main, ["report", str(results), "--check"])
+
+    assert result.exit_code == 1
+    assert "Regression budget failed" in result.output
+
+
+def test_report_check_errors_when_no_budgets_recorded(tmp_path):
+    differ = PromptDiff(threshold=0.85, use_semantic=False)
+    diffs, summary = differ.compare_batch([_rr("q1", "answer")], [_rr("q1", "answer")])
+    path = tmp_path / "nogates.json"
+    path.write_text(differ.to_json(diffs, summary), encoding="utf-8")  # gates omitted
+
+    result = CliRunner().invoke(main, ["report", str(path), "--check"])
+
+    assert result.exit_code != 0
+    assert "no regression budgets" in result.output.lower()
+
+
 def test_regression_budget_exits_nonzero(tmp_path, monkeypatch):
     monkeypatch.setattr("promptdiff.cli.PromptRunner", _DummyRunner)
     monkeypatch.setattr("promptdiff.cli._run_both", _fake_regression_run)

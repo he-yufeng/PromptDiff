@@ -122,6 +122,12 @@ promptdiff report results.json -o report.md
 promptdiff report results.json --format junit -o junit.xml
 ```
 
+`report --check` 会重新套用 compare 时记录的回归预算，预算没过就以非零码退出。这样可以让一个 CI job 跑较贵的 `compare` 并上传 `results.json`，再让后面一个便宜的 job 离线发评论 + 卡门禁：
+
+```bash
+promptdiff report results.json -o report.md --check   # 预算没过则退出 1
+```
+
 每条回归还会标上严重程度，一眼就能区分"擦边变化"和"整段重写"。等级取决于输出相似度比该次运行的阈值低多少：minor（刚刚低于）、moderate、major；运行报错一律算 major。报告里既有每条 case 的等级，也有一行汇总，比如 `Severity: 1 major, 2 moderate`。阈值会写进结果 JSON，所以 `report` 离线也能还原出同样的等级。
 
 ### 先看最危险的 case

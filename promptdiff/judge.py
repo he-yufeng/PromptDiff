@@ -57,23 +57,64 @@ async def judge_case(
             ],
         )
         raw = resp.choices[0].message.content or ""
-        # try to parse JSON from the response
-        data = json.loads(raw)
-        verdict = data.get("verdict", "equivalent")
-        reason = data.get("reason", "")
-
-        if verdict == "better":
-            case.change = ChangeType.IMPROVED
-        elif verdict == "worse":
-            case.change = ChangeType.REGRESSED
-        else:
-            case.change = ChangeType.UNCHANGED
-
-        case.judge_verdict = verdict
-        case.judge_reason = reason
-
     except Exception:
-        # if judge fails, keep the original classification
-        pass
+        # LLM call failed (network, auth, ...) — keep the original classification
+        return case
 
+    parsed = _parse_verdict(raw)
+    if parsed is None:
+        # judge reply wasn't parseable — keep the original classification rather
+        # than guessing "equivalent" and masking a real change
+        return case
+
+    verdict, reason = parsed
+    case.change = _verdict_to_change(verdict)
+    case.judge_verdict = verdict
+    case.judge_reason = reason
     return case
+
+
+def _parse_verdict(raw: str) -> tuple[str, str] | None:
+    """Pull the ``{verdict, reason}`` object out of a judge reply.
+
+    Models routinely wrap JSON in ```json fences or surround it with prose
+    despite being told to return JSON only; a bare ``json.loads`` then fails
+    and the judge silently does nothing. This strips fences and falls back to
+    the first ``{...}`` block. Returns ``None`` when no valid verdict is found
+    so the caller can keep the original classification.
+    """
+    text = (raw or "").strip()
+    if text.startswith("```"):
+        newline = text.find("\n")
+        last_fence = text.rfind("```")
+        if newline != -1 and last_fence > newline:
+            text = text[newline + 1 : last_fence].strip()
+
+    data = _loads_object(text)
+    if data is None:
+        start, end = text.find("{"), text.rfind("}")
+        if start != -1 and end > start:
+            data = _loads_object(text[start : end + 1])
+
+    if not isinstance(data, dict):
+        return None
+    verdict = data.get("verdict")
+    if verdict not in {"better", "worse", "equivalent"}:
+        return None
+    reason = data.get("reason", "")
+    return verdict, reason if isinstance(reason, str) else str(reason)
+
+
+def _loads_object(text: str) -> dict | list | None:
+    try:
+        return json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+
+def _verdict_to_change(verdict: str) -> ChangeType:
+    if verdict == "better":
+        return ChangeType.IMPROVED
+    if verdict == "worse":
+        return ChangeType.REGRESSED
+    return ChangeType.UNCHANGED

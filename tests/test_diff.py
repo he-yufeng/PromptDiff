@@ -90,6 +90,17 @@ class TestPromptDiff:
         assert PromptDiff._lexical_similarity("", "hello") == 0.0
         assert PromptDiff._lexical_similarity("hello world", "hello world") == 1.0
 
+    def test_both_empty_outputs_are_unchanged(self):
+        # Two empty (or whitespace-only) outputs are identical, not a regression.
+        # The semantic path must agree with the lexical fallback's "", "" -> 1.0.
+        assert PromptDiff(use_semantic=False)._semantic_similarity("", "") == 1.0
+        assert PromptDiff(use_semantic=True)._semantic_similarity("  ", "\n") == 1.0
+
+        differ = PromptDiff(threshold=0.85, use_semantic=False)
+        case = differ.compare_pair(_make_result("q", ""), _make_result("q", ""))
+        assert case.change == ChangeType.UNCHANGED
+        assert case.similarity == 1.0
+
     def test_to_json(self):
         differ = PromptDiff(use_semantic=False)
         a = [_make_result("q1", "answer A")]

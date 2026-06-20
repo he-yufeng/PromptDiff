@@ -202,11 +202,14 @@ class PromptDiff:
 
     def _semantic_similarity(self, text_a: str, text_b: str) -> float:
         """Compute cosine similarity between two texts."""
-        if not text_a or not text_b:
-            return 0.0
-
+        # Identical outputs are unchanged — check this first so two empty (or
+        # whitespace-only) outputs score 1.0 like the lexical fallback does,
+        # instead of being flagged as a regression.
         if text_a.strip() == text_b.strip():
             return 1.0
+
+        if not text_a or not text_b:
+            return 0.0
 
         if not self.use_semantic:
             return self._lexical_similarity(text_a, text_b)

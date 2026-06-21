@@ -26,7 +26,10 @@ def load_test_cases(path: str) -> list[str]:
     suffix = p.suffix.lower()
 
     if suffix == ".jsonl":
-        lines = p.read_text(encoding="utf-8").strip().splitlines()
+        # Don't strip leading blank lines: that would shift every line number,
+        # so a parse error would point at the wrong physical line. Keep the file
+        # as-is and skip blank lines inside the loop instead.
+        lines = p.read_text(encoding="utf-8").splitlines()
         cases = []
         for line_no, line in enumerate(lines, start=1):
             if not line.strip():

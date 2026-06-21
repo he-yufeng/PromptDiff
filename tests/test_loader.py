@@ -90,3 +90,12 @@ class TestLoadTestCases:
 
         with pytest.raises(ValueError, match="expected a list"):
             load_test_cases(str(p))
+
+
+def test_jsonl_error_line_number_survives_leading_blank_lines(tmp_path):
+    # A parse error must point at the real physical line, not one shifted by the
+    # leading blank lines. Valid record on line 3, invalid JSON on line 4.
+    p = tmp_path / "cases.jsonl"
+    p.write_text('\n\n{"input": "ok"}\nnot json\n', encoding="utf-8")
+    with pytest.raises(ValueError, match=r":4: invalid JSONL"):
+        load_test_cases(str(p))

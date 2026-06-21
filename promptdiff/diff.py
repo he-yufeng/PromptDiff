@@ -186,6 +186,11 @@ class PromptDiff:
         threshold: float = 0.85,
         use_semantic: bool = True,
     ):
+        # Similarities are in [0, 1], so a threshold outside that range silently
+        # breaks the comparison — e.g. passing 85 (meaning 85%) makes every case
+        # look changed because no similarity can ever reach it. Fail loudly.
+        if not 0.0 <= threshold <= 1.0:
+            raise ValueError(f"threshold must be between 0 and 1, got {threshold}")
         self.threshold = threshold
         self.use_semantic = use_semantic
         self._embedder = None

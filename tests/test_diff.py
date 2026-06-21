@@ -260,3 +260,14 @@ def test_evaluate_gates_checks_similarity_and_error_rate():
     assert gates["avg_similarity"] == 0.79
     assert gates["limits"]["min_avg_similarity"] == 0.8
     assert len(gates["failures"]) == 2
+
+
+def test_threshold_must_be_within_unit_interval():
+    import pytest
+
+    for bad in (1.5, 85, -0.1):
+        with pytest.raises(ValueError, match="between 0 and 1"):
+            PromptDiff(threshold=bad)
+    # the [0, 1] endpoints are valid
+    PromptDiff(threshold=0.0)
+    PromptDiff(threshold=1.0)

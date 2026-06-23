@@ -237,6 +237,15 @@ report.print_full(diffs, summary, verbose=True)
 
 JSON output includes judge verdicts and per-side run errors, so CI jobs can fail loudly instead of hiding API failures behind an empty diff.
 
+## Roadmap
+
+The A/B-over-test-cases core is solid. The next steps are about wider comparisons and easier review:
+
+- **Multi-version sweeps** — compare more than two prompts in one run (v1 vs v2 vs v3) with a matrix report, so tuning isn't limited to head-to-head.
+- **Pairwise judge mode** — let the LLM judge pick a winner per case head-to-head, instead of scoring each side against a threshold, which is steadier for subjective quality.
+- **Pluggable similarity backends** — beyond sentence-transformers and Jaccard, allow a custom scorer (an embedding API or a domain metric) for outputs where neither default fits.
+- **A GitHub Action** — a ready-made action that runs PromptDiff on a prompt-file change and posts the Markdown report as a PR comment, so prompt edits get reviewed like code.
+
 ## Development
 
 ```bash

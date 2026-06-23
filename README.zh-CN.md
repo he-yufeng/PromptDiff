@@ -186,6 +186,15 @@ report.print_full(diffs, summary, verbose=True)
 3. **分类**: 低于阈值的标记为"变化"，可选 LLM 裁判判断是改进还是退步
 4. **报告**: 彩色终端输出 + 可选 JSON 导出
 
+## 后续规划
+
+「跨测试用例做 A/B」这条主线已经稳定，接下来想做更宽的对比和更顺的评审：
+
+- **多版本扫描**：一次运行里对比两个以上 prompt（v1 vs v2 vs v3），出一张矩阵报告，调优时不必局限于两两对比。
+- **成对裁判模式**：让 LLM 裁判逐个 case 两两选出赢家，而不是各自和阈值比较——对主观质量更稳。
+- **可插拔相似度后端**：在 sentence-transformers 和 Jaccard 之外，允许自定义打分器（embedding API 或领域指标），应对两种默认都不合适的输出。
+- **GitHub Action**：一个现成 action，在 prompt 文件变更时跑 PromptDiff 并把 Markdown 报告贴成 PR 评论，让 prompt 改动像代码一样被评审。
+
 ## 开发
 
 ```bash

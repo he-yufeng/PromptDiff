@@ -1,11 +1,16 @@
-[![中文版](https://img.shields.io/badge/lang-中文-red)](README.zh-CN.md)
+<div align="center">
+
+<img src="docs/banner.png" alt="PromptDiff — semantic diff for LLM prompts" width="100%">
+
 [![Python](https://img.shields.io/badge/python-3.10+-blue)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![CI](https://github.com/he-yufeng/PromptDiff/actions/workflows/ci.yml/badge.svg)](https://github.com/he-yufeng/PromptDiff/actions)
 
-# PromptDiff
+[**Quick Start**](#quick-start) · [**Usage**](#usage) · [**How It Works**](#how-it-works) · [中文](README.zh-CN.md)
 
-**Semantic diff for LLM prompts** — compare prompt versions like `git diff`, but for behavior.
+</div>
+
+<p align="center"><img src="docs/demo.png" alt="promptdiff compare" width="620"></p>
 
 You changed your system prompt. Did it make things better or worse? PromptDiff runs both versions against your test cases, compares the outputs semantically, and tells you exactly what changed.
 

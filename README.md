@@ -242,6 +242,11 @@ pip install -e ".[dev,semantic]"
 pytest
 ```
 
+## Related projects
+
+- [TokenTracker](https://github.com/he-yufeng/TokenTracker) — a drop-in LLM cost tracker
+- [BatchLLM](https://github.com/he-yufeng/BatchLLM) — batch processing for LLM APIs
+
 ## License
 
 MIT

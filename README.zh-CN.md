@@ -1,8 +1,16 @@
-[![English](https://img.shields.io/badge/lang-English-blue)](README.md)
+<div align="center">
 
-# PromptDiff
+<img src="docs/banner.png" alt="PromptDiff — LLM prompt 的语义 diff" width="100%">
 
-**LLM prompt 的语义 diff 工具** — 像 `git diff` 一样对比 prompt 版本，但比较的是行为。
+[![Python](https://img.shields.io/badge/python-3.10+-blue)](https://python.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![CI](https://github.com/he-yufeng/PromptDiff/actions/workflows/ci.yml/badge.svg)](https://github.com/he-yufeng/PromptDiff/actions)
+
+[**快速开始**](#快速开始) · [**用法**](#用法) · [English](README.md)
+
+</div>
+
+<p align="center"><img src="docs/demo.png" alt="promptdiff compare" width="620"></p>
 
 你改了 system prompt，效果是变好了还是变差了？PromptDiff 把两个版本的 prompt 跑同一组测试用例，语义级别对比输出差异，告诉你到底改了什么。
 

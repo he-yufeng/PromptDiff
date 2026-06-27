@@ -256,10 +256,14 @@ pip install -e ".[dev,semantic]"
 pytest
 ```
 
-## Related projects
+## Related Projects
 
-- [TokenTracker](https://github.com/he-yufeng/TokenTracker) — a drop-in LLM cost tracker
-- [BatchLLM](https://github.com/he-yufeng/BatchLLM) — batch processing for LLM APIs
+PromptDiff is one of the tools I use to keep prompt changes honest. A few related ones:
+
+- **[CoreCoder](https://github.com/he-yufeng/CoreCoder)** — want to understand how a coding agent really works? Read the whole ~1k-line engine end to end, not a black box.
+- **[RepoWiki](https://github.com/he-yufeng/RepoWiki)** — dropped into an unfamiliar codebase? It gives you a guided wiki and a where-to-start reading path, a self-hostable DeepWiki alternative.
+- **[LiteBench](https://github.com/he-yufeng/LiteBench)** — benchmark any LLM in one command: HumanEval, GSM8K and MMLU built in, plus your own tasks.
+- **[FlightBox](https://github.com/he-yufeng/FlightBox)** — make non-deterministic LLM calls reproducible: record once, then replay and diff in tests.
 
 ## License
 

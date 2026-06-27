@@ -205,6 +205,15 @@ pip install -e ".[dev,semantic]"
 pytest
 ```
 
+## 相关项目
+
+PromptDiff 是我用来盯 prompt 改动的工具之一，下面是几个相关的：
+
+- **[CoreCoder](https://github.com/he-yufeng/CoreCoder)** — 想搞懂一个 coding agent 到底怎么运作？把整套约 1000 行引擎从头读到尾，而不是当黑箱。
+- **[RepoWiki](https://github.com/he-yufeng/RepoWiki)** — 被丢进一个陌生代码库？它给你一份带「从哪读起」路径的 wiki，一个可自托管的 DeepWiki 替代。
+- **[LiteBench](https://github.com/he-yufeng/LiteBench)** — 一条命令给任意 LLM 跑基准：内置 HumanEval、GSM8K、MMLU，也能加你自己的任务。
+- **[FlightBox](https://github.com/he-yufeng/FlightBox)** — 让不确定的 LLM 调用变得可复现：录一次，在测试里回放和比对。
+
 ## 许可证
 
 MIT

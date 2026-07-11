@@ -28,10 +28,10 @@ Prompt engineering is iterative. You tweak a word, add an instruction, restructu
 ## Installation
 
 ```bash
-pip install promptdiff
+pip install promptdelta
 
 # with semantic similarity (recommended)
-pip install "promptdiff[semantic]"
+pip install "promptdelta[semantic]"
 ```
 
 ## Quick Start

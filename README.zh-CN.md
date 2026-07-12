@@ -138,12 +138,44 @@ promptdiff report results.json -o report.md --check   # 预算没过则退出 1
 
 每条回归还会标上严重程度，一眼就能区分"擦边变化"和"整段重写"。等级取决于输出相似度比该次运行的阈值低多少：minor（刚刚低于）、moderate、major；运行报错一律算 major。报告里既有每条 case 的等级，也有一行汇总，比如 `Severity: 1 major, 2 moderate`。阈值会写进结果 JSON，所以 `report` 离线也能还原出同样的等级。
 
+### 调整敏感度
+
+阈值越低越宽松（更少误报的回归）：
+
+```bash
+promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl --threshold 0.7
+```
+
 ### 先看最危险的 case
 
 终端报告默认按严重程度排序：先显示 prompt 运行错误，再显示相似度最低的回归 case，然后才是改进和未变化的 case。这样 review 时不用从几十条样例里自己找重点。如果你想保留测试用例原始顺序：
 
 ```bash
 promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl --sort input
+```
+
+### 全部选项
+
+```
+Options:
+  -m, --model TEXT          运行 prompt 用的模型（默认 gpt-4o-mini）
+  --base-url TEXT           自定义 API base URL
+  --api-key TEXT            API key（默认取 OPENAI_API_KEY 环境变量）
+  -t, --threshold FLOAT     判定「未变」的相似度阈值（默认 0.85）
+  --judge / --no-judge      对变化的 case 用 LLM 裁判
+  --judge-model TEXT        裁判模型（默认 gpt-4o-mini）
+  -v, --verbose             对变化的 case 显示详细输出
+  --show-unchanged          在报告里包含未变化的 case
+  -o, --json-output PATH    把 JSON 结果写入文件
+  -c, --concurrency INT     最大并发 API 调用数（默认 5）
+  --no-semantic             用词法相似度而非 embedding
+  --fail-on-regression      发现回归则退出码 1
+  --fail-on-error           任何 prompt 运行报错则退出码 1
+  --max-regression-rate FLOAT
+  --min-avg-similarity FLOAT
+  --max-error-rate FLOAT
+  --max-avg-latency-increase FLOAT
+  --max-avg-token-increase FLOAT
 ```
 
 ## 测试用例格式

@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from promptdiff.diff import (
     ChangeType,
     DiffSummary,
@@ -43,6 +45,15 @@ class TestPromptDiff:
         case = differ.compare_pair(a, b)
         assert case.change == ChangeType.REGRESSED
         assert case.similarity < 0.85
+
+    def test_compare_batch_rejects_mismatched_lengths(self):
+        # A length mismatch must fail loudly, not silently drop cases via zip()
+        # (an assert would be stripped under `python -O`).
+        differ = PromptDiff(use_semantic=False)
+        a = [_make_result("q1", "a1"), _make_result("q2", "a2")]
+        b = [_make_result("q1", "a1")]
+        with pytest.raises(ValueError, match="equal length"):
+            differ.compare_batch(a, b)
 
     def test_error_case(self):
         differ = PromptDiff(use_semantic=False)

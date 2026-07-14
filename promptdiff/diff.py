@@ -276,7 +276,13 @@ class PromptDiff:
         self, results_a: list[RunResult], results_b: list[RunResult]
     ) -> tuple[list[CaseDiff], DiffSummary]:
         """Compare all test cases and produce diffs + summary."""
-        assert len(results_a) == len(results_b), "Result lists must have equal length"
+        # Raise rather than assert: under `python -O` a stripped assert would let
+        # zip() silently truncate to the shorter list, dropping cases from a CI
+        # regression gate without any signal.
+        if len(results_a) != len(results_b):
+            raise ValueError(
+                f"result lists must have equal length, got {len(results_a)} and {len(results_b)}"
+            )
 
         diffs = [self.compare_pair(a, b) for a, b in zip(results_a, results_b)]
 

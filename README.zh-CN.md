@@ -22,6 +22,7 @@ Prompt 工程是个反复迭代的过程。改个措辞、加个指令、调整�
 - **语义级对比** — 用 sentence-transformers 向量余弦相似度检测行为变化（也支持词法 fallback）
 - **LLM 裁判** — 可选功能，用另一个 LLM 判断变化是改进还是退步
 - **CI 友好** — 检测到退步时退出码为 1，支持 JSON 输出供自动化流程使用
+- **基线复用** — 用 `--save-baseline` 把基准版本的输出存一次，之后用 `--baseline` 直接对比新候选，基准侧零 API 花费；prompt、模型或测试集有变动会立刻报错，不会拿过期结果糊弄你
 - **Rich 终端报告** — 彩色差异表、相似度分数、延迟/token 变化一目了然
 
 ## 安装
@@ -89,6 +90,20 @@ promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl \
   --model llama-3.1-8b \
   --base-url http://localhost:11434/v1
 ```
+
+### 基线复用
+
+基准侧只跑一次，之后的新候选都直接跟它对比：
+
+```bash
+# 第一次：两边都跑，同时把基准版本的输出存下来
+promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl --save-baseline baseline.json
+
+# 之后：新候选直接对比存档结果，基准侧零 API 调用
+promptdiff compare prompt_a.txt prompt_c.txt tests.jsonl --baseline baseline.json
+```
+
+基线文件绑定了 prompt 文本、模型和测试集的指纹。任何一项跟存档时对不上，运行会立刻报出具体不符之处，而不是拿过期输出硬比。
 
 ### CI 集成
 

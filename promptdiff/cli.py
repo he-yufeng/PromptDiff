@@ -8,6 +8,8 @@ import sys
 import click
 from rich.console import Console
 
+from promptdiff.baseline import check_compatible, load_baseline
+from promptdiff.baseline import save_baseline as write_baseline
 from promptdiff.diff import ChangeType, PromptDiff, diffs_from_payload, evaluate_gates
 from promptdiff.judge import judge_case
 from promptdiff.loader import load_prompt, load_test_cases
@@ -42,9 +44,7 @@ def validate(prompt: str, test_cases: str, min_cases: int):
     if not prompt_text:
         raise click.ClickException("Prompt file is empty.")
     if len(inputs) < min_cases:
-        raise click.ClickException(
-            f"Only found {len(inputs)} test case(s), but --min-cases is {min_cases}."
-        )
+        raise click.ClickException(f"Only found {len(inputs)} test case(s), but --min-cases is {min_cases}.")
 
     console.print("[green]PromptDiff inputs look valid.[/green]")
     console.print(f"[bold]Prompt chars:[/bold] {len(prompt_text):,}")
@@ -102,14 +102,10 @@ def report(results: str, output: str | None, top: int, title: str, report_format
         text = render_junit_xml(diffs, summary, threshold=threshold)
         label = "JUnit XML report"
     elif report_format == "html":
-        text = render_html(
-            diffs, summary, gates=payload.get("gates"), title=title, threshold=threshold
-        )
+        text = render_html(diffs, summary, gates=payload.get("gates"), title=title, threshold=threshold)
         label = "HTML report"
     else:
-        text = render_markdown(
-            diffs, summary, gates=payload.get("gates"), top_n=top, title=title, threshold=threshold
-        )
+        text = render_markdown(diffs, summary, gates=payload.get("gates"), top_n=top, title=title, threshold=threshold)
         label = "Markdown report"
 
     if output:
@@ -168,6 +164,18 @@ def report(results: str, output: str | None, top: int, title: str, report_format
 @click.option("--max-avg-token-increase", type=float, help="Maximum allowed average output-token increase.")
 @click.option("--min-avg-similarity", type=float, help="Minimum allowed average output similarity (0-1).")
 @click.option("--max-error-rate", type=float, help="Maximum allowed fraction of errored cases (0-1).")
+@click.option(
+    "--baseline",
+    type=click.Path(exists=True),
+    default=None,
+    help="Reuse saved prompt A outputs from this file instead of re-running prompt A.",
+)
+@click.option(
+    "--save-baseline",
+    type=click.Path(),
+    default=None,
+    help="Save prompt A's outputs to this file for later --baseline runs.",
+)
 def compare(
     prompt_a: str,
     prompt_b: str,
@@ -192,6 +200,8 @@ def compare(
     max_avg_token_increase: float | None,
     min_avg_similarity: float | None,
     max_error_rate: float | None,
+    baseline: str | None,
+    save_baseline: str | None,
 ):
     """Compare two prompt versions against test cases.
 
@@ -218,6 +228,24 @@ def compare(
 
     console.print(f"[bold]Running {len(inputs)} test cases through [blue]{model}[/blue]...[/bold]")
 
+    # run both prompt versions, or reuse a saved baseline for prompt A
+    saved = None
+    if baseline:
+        try:
+            saved = load_baseline(baseline)
+        except (ValueError, KeyError, TypeError) as exc:
+            console.print(f"[red]Could not load baseline {baseline}: {exc}[/red]")
+            sys.exit(1)
+        problems = check_compatible(saved, text_a, model, inputs)
+        if problems:
+            console.print(f"[red]Baseline {baseline} does not match this run:[/red]")
+            for problem in problems:
+                console.print(f"[red]- {problem}[/red]")
+            sys.exit(1)
+        console.print(
+            f"[dim]Reusing baseline from {baseline} ({len(saved.results)} cases); prompt A is not re-run.[/dim]"
+        )
+
     config = RunConfig(
         model=model,
         base_url=base_url,
@@ -226,8 +254,15 @@ def compare(
     )
     runner = PromptRunner(config)
 
-    # run both prompt versions
-    results_a, results_b = asyncio.run(_run_both(runner, text_a, text_b, inputs))
+    if saved is not None:
+        results_a = saved.results
+        results_b = asyncio.run(runner.run_batch(text_b, inputs))
+    else:
+        results_a, results_b = asyncio.run(_run_both(runner, text_a, text_b, inputs))
+
+    if save_baseline:
+        write_baseline(save_baseline, text_a, model, inputs, results_a)
+        console.print(f"[dim]Prompt A outputs saved to {save_baseline}[/dim]")
 
     # compute diffs
     differ = PromptDiff(threshold=threshold, use_semantic=not no_semantic)
@@ -284,22 +319,14 @@ def compare(
     if junit_xml:
         from pathlib import Path
 
-        Path(junit_xml).write_text(
-            render_junit_xml(diffs, summary, threshold=threshold), encoding="utf-8"
-        )
+        Path(junit_xml).write_text(render_junit_xml(diffs, summary, threshold=threshold), encoding="utf-8")
         console.print(f"[dim]JUnit XML written to {junit_xml}[/dim]")
 
-    if (
-        (fail_on_regression and summary.regressed > 0)
-        or (fail_on_error and summary.errors > 0)
-        or not gates["passed"]
-    ):
+    if (fail_on_regression and summary.regressed > 0) or (fail_on_error and summary.errors > 0) or not gates["passed"]:
         sys.exit(1)
 
 
-async def _run_both(
-    runner: PromptRunner, prompt_a: str, prompt_b: str, inputs: list[str]
-) -> tuple[list, list]:
+async def _run_both(runner: PromptRunner, prompt_a: str, prompt_b: str, inputs: list[str]) -> tuple[list, list]:
     """Run both prompts concurrently."""
     a, b = await asyncio.gather(
         runner.run_batch(prompt_a, inputs),
@@ -315,8 +342,10 @@ async def _judge_all(diffs, client, model):
         if d.change == ChangeType.REGRESSED:
             tasks.append(judge_case(d, client, model))
         else:
+
             async def _identity(x=d):
                 return x
+
             tasks.append(_identity())
     return await asyncio.gather(*tasks)
 

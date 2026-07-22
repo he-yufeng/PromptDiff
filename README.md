@@ -23,6 +23,7 @@ Prompt engineering is iterative. You tweak a word, add an instruction, restructu
 - **LLM-as-judge** (optional) to classify changes as improvements or regressions
 - **CI-friendly** — exit code 1 on regressions, JSON output for automation
 - **Error-aware gating** - fail CI when either prompt version errors before trusting the diff
+- **Baselines** — save prompt A's outputs once with `--save-baseline`, then diff future candidates against them with `--baseline` at zero API cost for the baseline side; prompt, model, or test-case drift fails fast instead of diffing against stale outputs
 - **Rich terminal reports** with color-coded diffs, similarity scores, latency/token deltas
 
 ## Installation
@@ -104,6 +105,20 @@ promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl \
   --model llama-3.1-8b \
   --base-url http://localhost:11434/v1
 ```
+
+### Baselines
+
+Save the baseline side once, then compare future candidates against it without re-running it:
+
+```bash
+# one-time: run both sides and store prompt A's outputs
+promptdiff compare prompt_a.txt prompt_b.txt tests.jsonl --save-baseline baseline.json
+
+# later: diff a new candidate against the stored outputs (no API calls for prompt A)
+promptdiff compare prompt_a.txt prompt_c.txt tests.jsonl --baseline baseline.json
+```
+
+The baseline is fingerprinted against the prompt text, model, and test-case set. If any of them drifted since the baseline was saved, the run fails fast with the specific mismatches instead of diffing against stale outputs.
 
 ### CI integration
 
